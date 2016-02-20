@@ -1,0 +1,25 @@
+{
+	"name": "Meetupalyzer",
+	"version": "0.0.1",
+	"description": "Web application to provide insights about groups on Meetup.com with IBM-related topics.",
+	"scripts": {
+		"start": "node app.js"
+	},
+	"dependencies": {
+        "body-parser": "^1.13.2",
+		"express": "^4.12.2",
+		"cfenv": "1.0.x",
+        "ejs": "^2.3.4",
+		"watson-developer-cloud": "^1.2.2",
+        "request": "^2.67.0",
+        "dotenv": "^2.0.0"
+	},
+	"repository": {
+        "type": "git",
+        "url":  "https://github.com/samcennis/meetupalyzer.git"
+    },
+    "author": "Sam Ennis",
+	"engines": {
+		"node": "0.12.x"
+	} 
+}
