@@ -5,18 +5,20 @@ var express     = require('express'),
     watson      = require('watson-developer-cloud'),
     bodyParser  = require('body-parser'),
     request     = require('request'),
-    dotenv      = require('dotenv');
+    dotenv      = require('dotenv'),
+    striptags   = require('striptags');
 
 //Load environment variables
 dotenv.load();
 var meetupApiKey = process.env.MEETUP_API_KEY;
+var mongolabURI = process.env.MONGOLAB_URI;
 
 // Express settings/config
 app.enable('trust proxy');
 app.set('view engine', 'ejs');
 require('ejs').delimiter = '$';
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json());
+app.use(bodyParser.json({limit: '50mb'}));
+app.use(bodyParser.urlencoded({ limit: '50mb', extended: true, parameterLimit: 10000 }));
 app.use(express.static(__dirname + '/public'));
 
 // Create the service wrapper
@@ -51,7 +53,7 @@ app.post('/api/topic_id', function(req,res,next) {
         }, 
         function (error, response, body) {
             if (!error && response.statusCode == 200) {
-                console.log("Success: " + response.body);
+                //console.log("Success topic find: " + response.body);
                 var bodyObj = JSON.parse(response.body);
                 if (bodyObj.results.length == 0){
                     return res.json({topic_name : -1 , topic_id : -1}); //no matching results
@@ -69,118 +71,187 @@ app.post('/api/topic_id', function(req,res,next) {
                 return console.log("Error: " + error);
             }
             else{
-                return console.log("Status code: " + response.statusCode);
+                return console.log("Find topics Status code: " + response.statusCode + ": " + response.body);
             }
         } 
     )  
 });
 
 app.post('/api/find/groups', function(req, res, next) {
+    console.log("Group find request");
     var url = 'http://api.meetup.com/find/groups';
     request({
         method: 'GET', 
         url: url,
-        qs: {topic_id: req.body.topic_id, key: meetupApiKey, radius: "global", page: 20}
+        qs: {topic_id: req.body.topic_id, key: meetupApiKey, radius: "global", page: 200}
         }, 
         function (error, response, body) {
             if (!error && response.statusCode == 200) {
-                //console.log("Success: " + response.body);
+                //console.log("Success group find: " + response.body);
                 var bodyObj = JSON.parse(response.body);
-                return res.json(bodyObj); //no matching results
+                return res.json(bodyObj);
             }    
             else if (error){
                 return console.log("Error: " + error);
             }
             else{
-                return console.log("Status code: " + response.statusCode);
+                return console.log("Find Groups Status code: " + response.statusCode + ": " + response.body);
             }
         } 
     )
 });
 
+app.post('/api/find/events', function(req, res, next) {
+    console.log("Event find request");
+    
+    var groupIdList = req.body.group_id_list;
+    
+    //Convert this list into comma seperated string
+    var groupIdString = groupIdList.join();
+
+    var url = 'http://api.meetup.com/2/events';
+    request({
+        method: 'GET', 
+        url: url,
+        qs: {group_id: groupIdString, key: meetupApiKey, page: 1000, limited_events: true}
+        }, 
+        function (error, response, body) {
+            if (!error && response.statusCode == 200) {
+                //console.log("Success event find: " + response.body);
+                var bodyObj = JSON.parse(response.body);
+                return res.json(bodyObj);
+            }    
+            else if (error){
+                return console.log("Error: " + error);
+            }
+            else{
+                return console.log("Find Events Status code: " + response.statusCode + ": " + response.body);
+            }
+        } 
+    )
+});
+
+
+//Testing Mongo
+var mongoose = require('mongoose');
+mongoose.connect(mongolabURI, function (err, res) {
+    if (err) { 
+        console.log ('ERROR connecting to MongoLab');
+    } else {
+        console.log ('Succeeded connecting to MongoLab');
+    }
+});
+
+var db = mongoose.connection;
+
+var TodoSchema = require('./models/Todo.js').TodoSchema;
+var Todo = db.model('todos', TodoSchema);
+
+var TopicSchema = require('./models/Topic.js').TopicSchema;
+var Topic = db.model('topics', TopicSchema);
+
+/*var EventSchema = require('./models/Event.js').EventSchema;
+var Event = db.model('events', EventSchema);*/
+
+var GroupSchema = require('./models/Group.js').GroupSchema;
+var Group = db.model('groups', GroupSchema);
+
+app.post('/api/addTodo', function(req,res,next) {
+    var toAdd = new Todo( {'description' : req.body.desc, 'due' : new Date().getTime() });      
+    toAdd.save(function (err, object) {
+    if (err) return console.error(err);
+        console.log(object.description);
+    });
+});
+
+/*app.post('/db/addTopic', function(req,res,next){
+    var toAdd = new Topic( {'' :  });      
+    toAdd.save(function (err, object) {
+    if (err) return console.error(err);
+        console.log(object.description);
+    });
+});*/
+
+/*
+app.post('/db/addEvent', function(req,res,next) {
+    var toAdd = new Topic( {'' :  });      
+    toAdd.save(function (err, object) {
+    if (err) return console.error(err);
+        console.log(object.description);
+    });    
+});*/
+
+app.post('/db/addGroupList', function(req,res,next) {
+    //console.log(req.body.created);
+    //var date = new Date(req.body.created);
+    //console.log(date.getTime());
+    
+    var groupList = formatGroupList(req.body.group_list);
+    
+    //console.log(groupList);
+    
+    Group.collection.insert(groupList, function(err, docs){
+        if (err) {
+        // TODO: handle error
+        } else {
+            console.log(docs.length + " potatoes were successfully stored.");
+        }
+        
+    });
+ 
+});
+
+app.post('/db/getGroupDataMemberMap', function(req,res,next) {
+    
+    Group.find({}, function(err, groups){
+        var data = [];
+        
+        for (var i=0; i < groups.length; i++){
+            data.push( { "created" : groups[i].created, "members" : groups[i].members });
+            console.log(data);   
+        }
+        return res.json(data);
+    });
+});
+
+
+var formatGroupList = function(list){
+    for (var i=0; i < list.length; i++){
+        //Delete unneccessary properties
+        list[i].score && delete list[i].score;
+        list[i].link && delete list[i].link;
+        list[i].join_mode && delete list[i].join_mode;
+        list[i].visibility && delete list[i].visibility;
+        list[i].organizer && delete list[i].organizer;
+        list[i].next_event && delete list[i].next_event;
+        list[i].category && delete list[i].category;
+        list[i].photos && delete list[i].photos;
+        list[i].group_photo && delete list[i].group_photo;
+        list[i].who && delete list[i].who;
+        
+        if (list[i].description){ //strip html tags
+            list[i].description = striptags(list[i].description);
+        }
+        
+        
+        if (list[i].created){ //change creation date into Date object
+            var createdDate = new Date();
+            createdDate.setTime(list[i].created);
+            list[i].created = createdDate;
+        }
+        
+        list[i]._id = list[i].id;
+        delete list[i].id;
+        
+    }
+    return list;
+}
+
 var port = process.env.VCAP_APP_PORT || 3000;
 app.listen(port);
 console.log('listening at:', port);
 
-//---------------------------------------------------------------------------------------
-
-/**
- * Module dependencies
- */
-
-var express     = require('express'),
-  bodyParser    = require('body-parser'),
-  methodOverride= require('method-override'),
-  errorHandler  = require('error-handler'),
-  morgan        = require('morgan'),
-  routes        = require('./routes'),
-  api           = require('./routes/api'),
-  http          = require('http'),
-  path          = require('path');
-  watson        = require('watson-developer-cloud'),
-  request       = require('request'),
-  dotenv        = require('dotenv');
 
 
-var app = module.exports = express();
 
-/**
- * Configuration
- */
-
-// Load environment variables (initial)
-dotenv.load();
-var meetupApiKey = process.env.MEETUP_API_KEY;
-
-// all environments (from seed)
-app.set('port', process.env.PORT || 3000);
-app.set('views', __dirname + '/views');
-//app.set('view engine', 'jade');
-app.use(morgan('dev'));
-//app.use(bodyParser());
-app.use(methodOverride());
-app.use(express.static(path.join(__dirname, 'public')));
-
-// all environments (From intial)
-app.enable('trust proxy');
-app.set('view engine', 'ejs');
-require('ejs').delimiter = '$';
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json());
-//app.use(express.static(__dirname + '/public'));
-
-var env = process.env.NODE_ENV || 'development';
-
-// development only
-if (env === 'development') {
-  app.use(express.errorHandler());
-}
-
-// production only
-if (env === 'production') {
-  // TODO
-}
-
-/**
- * Routes
- */
-
-// serve index and view partials
-app.get('/', routes.index);
-app.get('/partials/:name', routes.partials);
-
-// JSON API
-app.get('/api/name', api.name);
-
-// redirect all others to the index (HTML5 history)
-app.get('*', routes.index);
-
-
-/**
- * Start Server
- */
-
-http.createServer(app).listen(app.get('port'), function () {
-  console.log('Express server listening on port ' + app.get('port'));
-});
 
