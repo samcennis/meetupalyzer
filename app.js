@@ -9,9 +9,15 @@ var express     = require('express'),
     striptags   = require('striptags');
 
 //Load environment variables
-dotenv.load();
-var meetupApiKey = process.env.MEETUP_API_KEY;
-var mongolabURI = process.env.MONGOLAB_URI;
+
+/*if (process.env.PRODUCTION){
+    
+}
+else{*/
+    dotenv.load();
+    var meetupApiKey = process.env.MEETUP_API_KEY;
+    var mongolabURI = process.env.MONGOLAB_URI;
+//}
 
 // Express settings/config
 app.enable('trust proxy');
