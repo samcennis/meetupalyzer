@@ -29,9 +29,7 @@ $.getJSON("/meetup_data/groups.json", function(groupsJSON) {
     console.log(groupsJSON); // this will show the info it in firebug console
     var data = [];   
     for (var i=0; i < groupsJSON.length; i++){
-        var date = new Date(groupsJSON[i].created);
-        date = date.getTime();
-        data.push( {"name": groupsJSON[i].name, "x": date, "y": groupsJSON[i].members } );
+        data.push( {"name": groupsJSON[i].name, "x": groupsJSON[i].created, "y": groupsJSON[i].members } );
         console.log(data);   
     }
     
@@ -83,7 +81,8 @@ $.getJSON("/meetup_data/groups.json", function(groupsJSON) {
             series: [{
                 name: "Groups",
                 data: data
-            }]
+            }],
+            credits: false
         });
 });
  

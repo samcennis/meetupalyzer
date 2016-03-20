@@ -41,31 +41,53 @@ app.post('/api/update_meetup_data', function(req,res,next) {
     
     getTopicIdFromMeetupAPI(topic, function(topicID){
         
-        getGroupsByTopicIdFromMeetupAPI(topicID,
-        
-            function(groupList){
-                groupList = formatGroupList(groupList);   
-
-                console.log("Update meetup data! lets make a file!");
-                var file = __dirname + '/public/meetup_data/groups.json'
-
-                jsonfile.writeFile(file, groupList, function (err) {
-                    console.error(err)
-                  
-                    //add groups to the MongoDB database
-                    addAllGroupsToDB(groupList, function(err){
+        getGroupsByTopicIdFromMeetupAPI(topicID, function(groupList){
+                
+            var groupIdList = createGroupIdList(groupList); //form list of just the group ids
+            
+            getEventsByGroupIdListFromMeetupAPI(groupIdList, function(eventList){
+            
+                //Convert Meetup API JSON into local storage JSON format
+                var groupListToSave = formatGroupList(groupList);
+                var eventListToSave = formatEventList(eventList);
+            
+                //Write Groups to local JSON file
+                console.log("Writing groups.json local file...");
+                var groupJSONFile = __dirname + '/public/meetup_data/groups.json';
+                jsonfile.writeFile(groupJSONFile, groupListToSave, function (err) {
+                    if (err){
+                        return console.log("Error writing groups.json local file: " + err);
+                    }
+                    console.log("Groups.json written successfully.");
+                    
+                    //Write Events to local JSON file
+                    console.log("Writing events.json local file...");
+                    var eventJSONFile = __dirname + '/public/meetup_data/events.json';
+                    jsonfile.writeFile(eventJSONFile, eventListToSave, function (err) {
                         if (err){
-                            return console.log(err.message); 
+                            return console.log("Error writing events.json local file: " + err);
                         }
-                        var response = {
-                            status  : 200,
-                            success : 'Updated Successfully'
-                        }
-                        res.json(response);              
-                    })  
-                });              
-            }    
-        );     
+                        console.log("Events.json written successfully.");
+                        
+                        //Add Groups to the MongoDB database
+                        console.log("Adding groups to DB...");
+                        addAllGroupsToDB(groupListToSave, function(err){
+                            if (err){
+                                return console.log("Error adding groups to DB: " + err.message); 
+                            }
+                            console.log("Groups added successfully.");
+                        
+                            addAllEventsToDB(eventListToSave, function(err){
+                                if (err){
+                                    return console.log("Error adding events to DB: " + err.message); 
+                                }
+                                console.log("Events added successfully.");
+                            }); 
+                        });  
+                    }); 
+                });       
+            });                    
+        });     
     });
 });
 
@@ -127,33 +149,65 @@ function getGroupsByTopicIdFromMeetupAPI(topic_id, cb) {
 };
 
 function getEventsByGroupIdListFromMeetupAPI(group_id_list, cb) {
+    
     console.log("Event find request");
     
     var groupIdList = group_id_list;
     
     //Convert this list into comma seperated string
     var groupIdString = groupIdList.join();
-
+    
     var url = 'http://api.meetup.com/2/events';
-    request({
-        method: 'GET', 
-        url: url,
-        qs: {group_id: groupIdString, key: meetupApiKey, page: 1000, limited_events: true}
-        }, 
-        function (error, response, body) {
-            if (!error && response.statusCode == 200) {
-                //console.log("Success event find: " + response.body);
-                var bodyObj = JSON.parse(response.body);
-                return cb(bodyObj);
-            }    
-            else if (error){
-                return console.log("Error: " + error);
+    
+    //The max page size is 200, make multiple requests in a row to gather all events
+    var offset = 0;
+    var resultsToReturn = [];
+    
+    //Start first request
+    launchEventsRequest(offset); 
+ 
+    function eventsRequestCallback (error, response, body) {
+        
+        if (!error && response.statusCode == 200) {
+            console.log("Success event find offset: " + offset);
+            var bodyObj = JSON.parse(response.body);
+
+            Array.prototype.push.apply(resultsToReturn, bodyObj.results); //append new results to the array to return
+            
+            console.log("Total count: " + bodyObj.meta.total_count);
+            
+            //Launch another request with an incremented offset if the previous result's metadata has a "next url" listed
+            if (bodyObj.meta.next){
+                offset++;
+                launchEventsRequest(offset);
+                return;
             }
             else{
-                return console.log("Find Events Status code: " + response.statusCode + ": " + response.body);
+                console.log("No more events left. Results length is: " + resultsToReturn.length);
+                return cb(resultsToReturn);
             }
-        } 
-    )
+            
+            
+        }    
+        else if (error){
+            return console.log("Error: " + error);
+        }
+        else{
+            return console.log("Find Events Status code: " + response.statusCode + ": " + response.body);
+        }
+    }
+        
+    function launchEventsRequest(offset){
+        request({
+            method: 'GET', 
+            url: url,
+            qs: {group_id: groupIdString, key: meetupApiKey, page: 200, offset: offset, limited_events: true, status: "upcoming,past", text_format: "plain"}
+            }, 
+            eventsRequestCallback 
+        )  
+    }
+    
+        
 };
 
 
@@ -169,42 +223,22 @@ mongoose.connect(mongolabURI, function (err, res) {
 
 var db = mongoose.connection;
 
-var TodoSchema = require('./models/Todo.js').TodoSchema;
-var Todo = db.model('todos', TodoSchema);
-
-var TopicSchema = require('./models/Topic.js').TopicSchema;
-var Topic = db.model('topics', TopicSchema);
-
-/*var EventSchema = require('./models/Event.js').EventSchema;
-var Event = db.model('events', EventSchema);*/
+var EventSchema = require('./models/Event.js').EventSchema;
+var Event = db.model('events', EventSchema);
 
 var GroupSchema = require('./models/Group.js').GroupSchema;
 var Group = db.model('groups', GroupSchema);
 
-app.post('/api/addTodo', function(req,res,next) {
-    var toAdd = new Todo( {'description' : req.body.desc, 'due' : new Date().getTime() });      
-    toAdd.save(function (err, object) {
-    if (err) return console.error(err);
-        console.log(object.description);
-    });
-});
-
-/*app.post('/db/addTopic', function(req,res,next){
-    var toAdd = new Topic( {'' :  });      
-    toAdd.save(function (err, object) {
-    if (err) return console.error(err);
-        console.log(object.description);
-    });
-});*/
-
-/*
-app.post('/db/addEvent', function(req,res,next) {
-    var toAdd = new Topic( {'' :  });      
-    toAdd.save(function (err, object) {
-    if (err) return console.error(err);
-        console.log(object.description);
-    });    
-});*/
+function addAllEventsToDB(eventList, cb){
+    Event.collection.drop();
+    Event.collection.insert(eventList, function(err, docs){
+        if (err) {
+            return cb({message: "Error adding events to DB"});
+        }else{
+            return cb();
+        }
+    })
+};
 
 function addAllGroupsToDB(groupList, cb){
       
@@ -230,20 +264,6 @@ function addAllGroupsToDB(groupList, cb){
  
 };
 
-app.post('/db/getGroupDataMemberMap', function(req,res,next) {
-    
-    Group.find({}, function(err, groups){
-        var data = [];
-        
-        for (var i=0; i < groups.length; i++){
-            data.push( { "created" : groups[i].created, "members" : groups[i].members });
-            console.log(data);   
-        }
-        return res.json(data);
-    });
-});
-
-
 var formatGroupList = function(list){
     for (var i=0; i < list.length; i++){
         //Delete unneccessary properties
@@ -263,17 +283,72 @@ var formatGroupList = function(list){
         }
         
         
-        if (list[i].created){ //change creation date into Date object
+       /* if (list[i].created){ //change creation date into Date object
             var createdDate = new Date();
             createdDate.setTime(list[i].created);
             list[i].created = createdDate;
-        }
+        }*/
         
         list[i]._id = list[i].id;
         delete list[i].id;
         
     }
     return list;
+}
+
+var formatEventList = function(list){
+    for (var i=0; i < list.length; i++){
+        //Delete unneccessary properties
+        list[i].announced && delete list[i].announced;
+        list[i].distance && delete list[i].distance;
+        list[i].featured && delete list[i].featured;
+        list[i].fee && delete list[i].fee;
+        if(list[i].group){
+            list[i].group_id = list[i].group.id;
+            list[i].group_name = list[i].group.name;
+            delete list[i].group;
+        }
+        list[i].how_to_find_us && delete list[i].how_to_find_us;
+        list[i].is_simplehtml && delete list[i].is_simpleHTML;
+        list[i].photo_url && delete list[i].photo_url;
+        list[i].publish_status && delete list[i].publish_status;
+        list[i].rsvp_limit && delete list[i].rsvp_limit;
+        list[i].simple_html_description && delete list[i].simple_html_description;
+        list[i].waitlist_count && delete list[i].waitlist_count;
+        
+        if (list[i].venue){
+            list[i].lat = list[i].venue.lat;
+            list[i].lon = list[i].venue.lon;
+            list[i].city = list[i].venue.city;
+            list[i].state = list[i].venue.state;
+            list[i].country = list[i].venue.country;
+            delete list[i].venue;
+        }
+        
+        if (list[i].description){ //strip html tags
+            list[i].description = striptags(list[i].description);
+        }
+        //Format "hosts" list (delete photo links)
+        if (list[i].event_hosts){
+            for (var j=0; j < list[i].event_hosts.length; j++){
+                list[i].event_hosts[j].photo && delete list[i].event_hosts[j].photo;
+            }
+        }
+        
+        list[i]._id = list[i].id;
+        delete list[i].id;    
+    }
+    return list;
+}
+
+var createGroupIdList = function(groupList){
+    var groupIdList = [];
+    
+    for (var i=0; i < groupList.length; i++){
+        groupIdList.push(groupList[i].id);
+    }   
+    
+    return groupIdList;
 }
 
 var port = process.env.VCAP_APP_PORT || 3000;
