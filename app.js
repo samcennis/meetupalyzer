@@ -6,7 +6,8 @@ var express     = require('express'),
     bodyParser  = require('body-parser'),
     request     = require('request'),
     dotenv      = require('dotenv'),
-    striptags   = require('striptags');
+    striptags   = require('striptags'),
+    jsonfile    = require('jsonfile');
 
 //Load environment variables
 
@@ -27,50 +28,65 @@ app.use(bodyParser.json({limit: '50mb'}));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true, parameterLimit: 10000 }));
 app.use(express.static(__dirname + '/public'));
 
-// Create the service wrapper
-/*var toneAnalyzer = watson.tone_analyzer({
-  url: 'https://gateway.watsonplatform.net/tone-analyzer-beta/api/',
-  username: '<username>',
-  password: '<password>',
-  version_date: '2016-11-02',
-  version: 'v3-beta'
-});*/
-
-/*var toneAnalyzer = watson.tone_analyzer({
-  url: 'https://gateway.watsonplatform.net/tone-analyzer-beta/api/',
-  username: '62e4910b-836b-40c9-a88e-a0ee9d4d2e97',
-  password: '4vghH4Hmx9ra',
-  version_date: '2016-11-02',
-  version: 'v3-beta'
-});*/
 
 app.get('/', function(req, res) {
   res.render('index');
 });
 
-//Returns JSON response {topic_name, topic_id} for the first matching topic based on search
-//-1 is returned for both if it doesn't find any matching topics
-app.post('/api/topic_id', function(req,res,next) {
+
+//Called from the client in order to pull data from Meetup, add it to the DB, and create a local JSON file
+app.post('/api/update_meetup_data', function(req,res,next) {
+    
+    var topic = "Bluemix"; //Find groups with the topic "bluemix"
+    
+    getTopicIdFromMeetupAPI(topic, function(topicID){
+        
+        getGroupsByTopicIdFromMeetupAPI(topicID,
+        
+            function(groupList){
+                groupList = formatGroupList(groupList);   
+
+                console.log("Update meetup data! lets make a file!");
+                var file = __dirname + '/public/meetup_data/groups.json'
+
+                jsonfile.writeFile(file, groupList, function (err) {
+                    console.error(err)
+                  
+                    //add groups to the MongoDB database
+                    addAllGroupsToDB(groupList, function(err){
+                        if (err){
+                            return console.log(err.message); 
+                        }
+                        var response = {
+                            status  : 200,
+                            success : 'Updated Successfully'
+                        }
+                        res.json(response);              
+                    })  
+                });              
+            }    
+        );     
+    });
+});
+
+
+//Using Meetup API, finds "Topic ID" based on a "Topic" and passes it to a callback function
+function getTopicIdFromMeetupAPI(topic, cb){
     var url = 'http://api.meetup.com/topics';
     request({
         method: 'GET', 
         url: url,
-        qs: {name: req.body.topic, key: meetupApiKey, page: 20}
+        qs: {name: topic, key: meetupApiKey, page: 20}
         }, 
         function (error, response, body) {
             if (!error && response.statusCode == 200) {
-                //console.log("Success topic find: " + response.body);
+                console.log("Success topic find: " + response.body);
                 var bodyObj = JSON.parse(response.body);
                 if (bodyObj.results.length == 0){
-                    return res.json({topic_name : -1 , topic_id : -1}); //no matching results
+                    return console.log("No matching results.");
                 }
                 else{
-                    var r
-                    return res.json({
-                        //Return name and ID of first matching topic
-                        topic_name : bodyObj.results[0].name,
-                        topic_id   : bodyObj.results[0].id
-                    });
+                    return cb(bodyObj.results[0].id);
                 }
             }    
             else if (error){
@@ -81,21 +97,23 @@ app.post('/api/topic_id', function(req,res,next) {
             }
         } 
     )  
-});
+}
 
-app.post('/api/find/groups', function(req, res, next) {
+//Using Meetup API, finds a list of groups based on a "Topic ID" and passes it to a callback function
+function getGroupsByTopicIdFromMeetupAPI(topic_id, cb) {
     console.log("Group find request");
     var url = 'http://api.meetup.com/find/groups';
     request({
         method: 'GET', 
         url: url,
-        qs: {topic_id: req.body.topic_id, key: meetupApiKey, radius: "global", page: 200}
+        qs: {topic_id: topic_id, key: meetupApiKey, radius: "global", page: 200}
         }, 
         function (error, response, body) {
             if (!error && response.statusCode == 200) {
                 //console.log("Success group find: " + response.body);
+                console.log("Success group find!!");
                 var bodyObj = JSON.parse(response.body);
-                return res.json(bodyObj);
+                return cb(bodyObj);
             }    
             else if (error){
                 return console.log("Error: " + error);
@@ -105,12 +123,13 @@ app.post('/api/find/groups', function(req, res, next) {
             }
         } 
     )
-});
 
-app.post('/api/find/events', function(req, res, next) {
+};
+
+function getEventsByGroupIdListFromMeetupAPI(group_id_list, cb) {
     console.log("Event find request");
     
-    var groupIdList = req.body.group_id_list;
+    var groupIdList = group_id_list;
     
     //Convert this list into comma seperated string
     var groupIdString = groupIdList.join();
@@ -125,7 +144,7 @@ app.post('/api/find/events', function(req, res, next) {
             if (!error && response.statusCode == 200) {
                 //console.log("Success event find: " + response.body);
                 var bodyObj = JSON.parse(response.body);
-                return res.json(bodyObj);
+                return cb(bodyObj);
             }    
             else if (error){
                 return console.log("Error: " + error);
@@ -135,7 +154,7 @@ app.post('/api/find/events', function(req, res, next) {
             }
         } 
     )
-});
+};
 
 
 //Testing Mongo
@@ -187,25 +206,29 @@ app.post('/db/addEvent', function(req,res,next) {
     });    
 });*/
 
-app.post('/db/addGroupList', function(req,res,next) {
-    //console.log(req.body.created);
-    //var date = new Date(req.body.created);
-    //console.log(date.getTime());
-    
-    var groupList = formatGroupList(req.body.group_list);
-    
-    //console.log(groupList);
-    
+function addAllGroupsToDB(groupList, cb){
+      
+    //update the database!
+    Group.collection.drop(); //delete old groups 
     Group.collection.insert(groupList, function(err, docs){
         if (err) {
-        // TODO: handle error
+            return cb({message: "Error adding groups to DB"});
         } else {
-            console.log(docs.length + " potatoes were successfully stored.");
+            return cb();
         }
-        
     });
+  
+   /* var bulk = Group.collection.initializeOrderedBulkOp();
+    for (var i = 0; i < groupList.length; i++){
+        bulk.find({ _id : groupList[i]._id}).upsert().updateOne(groupList[i]);
+    }
+    
+    bulk.execute(function(err, results){
+        if (err) { console.log("error: " + err.message)};
+        console.log(results.nInserted + " docs inserted and " + results.nModified + " modified.")
+    });*/
  
-});
+};
 
 app.post('/db/getGroupDataMemberMap', function(req,res,next) {
     
