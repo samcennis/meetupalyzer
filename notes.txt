@@ -1,0 +1,14 @@
+Day of the week:
+
+    avg attendance to all of one particular meetup's events (15.6 people)
+
+    avg attendance for one particular meetup each day of the week
+    (Monday: 10.5 people, Tuesday: 12.2 people, Wednesday: 18.1 people, Thursday: 20.2 people,  Friday: 15.3 people)
+    
+    % below average for each day: (Monday -32.3%, Tuesday: -21.8%, Thursday: +16%)
+    
+    Wait... but how does this work with a group scheduling ALL their meetings on one day.... that would make it Thursday: 0%, when maybe a lot of people AARE going to that
+    
+    
+    
+Average these for ALL Groups to get average % below a group's average attendance
