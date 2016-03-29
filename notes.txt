@@ -12,3 +12,50 @@ Day of the week:
     
     
 Average these for ALL Groups to get average % below a group's average attendance
+
+
+Calculate...------------------------------------------------
+
+Groups:
+
+Avg events per month (for last 6 months). avg_events_per_month_last_3_months
+
+Avg attendance per events (in last 6 months). avg_yes_rsvps_per_event_last_3_months
+
+Average participation rate. (Avg attendance per event in last 6 months / # of members in group). avg_participation_rate
+
+Average parcipation rate each day of the week: (Avg participation on (M/T/W/Th/F) in last 6 months). avg_participation_rate_on_M(T/W/Th/F)
+
+Average participation each hour of day: [Total : M: [0:, 1:, 2:, 3:, 4:]] (combine the last 3 things into one structure in the JSON with array for each hour of the day....? Or maybe that's too much data to crunch. Need to google)
+
+*Make note that: Last 6 months is important, because I don't have historical growth data
+
+
+
+Events:
+Number of member's in the event's group: members_in_group
+Heads up time for each event. (date - announcement date). heads_up_time
+Participation rate for event (# of yes rsvps / # of members in the group's event). participation_rate //maybe not good because no historical growth data....
+
+
+
+Graph...-----------------------------------------------------
+
+Groups:
+
+"How many events to have per month?"
+Avg events per month vs. average participation rate (name and # of members in group on hover over)
+
+"What day of the week to schedule event?"
+
+"What time of day to schedule event?"
+
+Events:
+
+"How far in advance should I announce the event?"
+Heads_up_time vs. participation rate (name and # of members in group on hover)
+
+Rankings:
+
+Top groups by participation rate
+Top events by participation rate
