@@ -51,6 +51,10 @@ app.post('/api/update_meetup_data', function(req,res,next) {
                 var groupListToSave = formatGroupList(groupList);
                 var eventListToSave = formatEventList(eventList);
             
+                //Calculate average events per month for each group
+                calculateEventMetricsForGroups( groupList, eventList );
+
+                
                 //Write Groups to local JSON file
                 console.log("Writing groups.json local file...");
                 var groupJSONFile = __dirname + '/public/meetup_data/groups.json';
@@ -102,7 +106,7 @@ function getTopicIdFromMeetupAPI(topic, cb){
         }, 
         function (error, response, body) {
             if (!error && response.statusCode == 200) {
-                console.log("Success topic find: " + response.body);
+                console.log("Success topic find!");
                 var bodyObj = JSON.parse(response.body);
                 if (bodyObj.results.length == 0){
                     return console.log("No matching results.");
@@ -349,6 +353,89 @@ var createGroupIdList = function(groupList){
     }   
     
     return groupIdList;
+}
+
+
+function calculateEventMetricsForGroups( groupList, eventList ){
+    var currentDate = new Date();
+    var currentMonth = currentDate.getUTCMonth();
+    var currentYear = currentDate.getUTCFullYear();
+    
+    //Array contains: [ first day of the current month, 1st day of last month, ... , 1st day of 6 months ago] ( 7 entries ) 
+    var datesLast6Months = [];
+    var monthsAgo;
+    for ( monthsAgo = 0; monthsAgo <= 6; monthsAgo++){
+        datesLast6Months.push( new Date(currentYear, currentMonth - monthsAgo, 1, 0, 0, 0).getTime() );
+    }
+    
+    //console.log(datesLast6Months);
+
+    var i, j;
+    for (i = 0; i < groupList.length; i++ ) {
+        
+        var groupId = groupList[i]._id;
+        
+        //Keep track of the number of events [last month, two months ago, ... , 6 months ago ] ( excludes current month, so 6 entries )
+        var eventsLast6Months = [0,0,0,0,0,0];
+        var yesRSVPs = [];
+              
+        for ( j = 0; j < eventList.length; j++){
+            
+            // Check to see if this event is in this group
+            if (eventList[j].group_id == groupId) {
+                
+                var eventDate = eventList[j].time; //eventDate is ms since epoch
+                
+                if ( eventDate > datesLast6Months[0] ){
+                    //Event is in the current month, so cannot calculate an average
+                    continue;
+                } else if ( eventDate > datesLast6Months[1] ) {
+                    //Event was last month
+                    eventsLast6Months[0]++;
+                    yesRSVPs.push(eventList[j].yes_rsvp_count);
+                } else if ( eventDate > datesLast6Months[2] ) {
+                    //Event was 2 months ago
+                    eventsLast6Months[1]++;
+                    yesRSVPs.push(eventList[j].yes_rsvp_count);
+                } else if ( eventDate > datesLast6Months[3] ) {
+                    //Event was 3 months ago
+                    eventsLast6Months[2]++;
+                    yesRSVPs.push(eventList[j].yes_rsvp_count);
+                } else if ( eventDate > datesLast6Months[4] ) {
+                    //Event was 4 months ago
+                    eventsLast6Months[3]++;
+                    yesRSVPs.push(eventList[j].yes_rsvp_count);
+                } else if ( eventDate > datesLast6Months[5] ) {
+                    //Event was 5 months ago
+                    eventsLast6Months[4]++;
+                    yesRSVPs.push(eventList[j].yes_rsvp_count);
+                } else if ( eventDate > datesLast6Months[6] ) {
+                    //Event was 6 months ago
+                    eventsLast6Months[5]++;
+                    yesRSVPs.push(eventList[j].yes_rsvp_count);
+                }    
+            }    
+        }
+        
+        
+        //Fast way to calculate sum of array
+        function add(a, b) {
+            return a + b;
+        }
+        var averageEventsPerMonth = Math.round ( ( eventsLast6Months.reduce(add, 0) / 6) * 100 ) / 100;
+        var averageYesRSVPsPerEvent = 0;
+        if (yesRSVPs.length != 0) {
+            averageYesRSVPsPerEvent = Math.round ( ( yesRSVPs.reduce(add, 0) / yesRSVPs.length) * 100 ) / 100;
+        }
+        
+        var avgParticipationRate = Math.round ( ( averageYesRSVPsPerEvent / groupList[i].members ) * 100 ) / 100;
+        
+        groupList[i].avg_yes_rsvps_per_event_last_6_months = averageYesRSVPsPerEvent;
+        groupList[i].avg_events_per_month_last_6_months = averageEventsPerMonth;
+        groupList[i].num_events_last_6_months = eventsLast6Months;
+        groupList[i].avg_participation_rate = avgParticipationRate;
+        
+    }  
 }
 
 var port = process.env.VCAP_APP_PORT || 3000;
