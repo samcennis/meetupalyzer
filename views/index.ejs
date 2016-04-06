@@ -19,14 +19,23 @@
           <div class="row">
             <h5>Gain insight by visualizing data about IBM-related Meetup.com groups.</h5>
           </div>
-        <div class="divider"></div>
+          <div class>
+              <p>Currently displaying data on Meetup.com groups with the following topics: <i>"Bluemix", "IBM Bluemix", "IBM", "Cloud Foundry"</i></p>
+          </div>
+        
+          <div class="divider"></div>
           
+          <div id="summary" class="row section" style="display: none;">
+            
+          </div>
+          <div class="divider"></div>
+        
         <div id="groupLocationMap" style="width: 100%; max-height:700px;" class="row section">
         </div>
          
           <div class="divider"></div>
           
-        <div id="topAverageAttendanceDiv" class="row section"><p class="title">Highest Attended Meetups</p><table id="topAverageAttendanceTable" class="striped"><thead><tr><th>Group Name</th><th>Average Attendance</th><th>Number Of Members</th><th>Average Participation</th></tr></thead><tbody></tbody></table></div>  
+        <div id="topAverageAttendanceDiv" class="row section"><p class="title">Highest Attended Meetups</p><table id="topAverageAttendanceTable" class="striped"><thead><tr><th>Group Name</th><th>Average Attendance (Last 6 Months)</th><th>Number Of Members</th><th>Participation Rate</th></tr></thead><tbody></tbody></table></div>  
           
           <div class="divider"></div>
           
@@ -55,7 +64,7 @@
                     </div>
                 </div>
             </div>
-        </div>
+            </div>
     </div>
     
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>

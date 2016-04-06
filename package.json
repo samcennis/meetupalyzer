@@ -18,7 +18,8 @@
         "morgan": "^1.0.0",
         "mongoose" : "latest",
         "striptags": "latest",
-        "jsonfile": "latest"
+        "jsonfile": "latest",
+        "underscore": "latest"
 	},
 	"repository": {
         "type": "git",

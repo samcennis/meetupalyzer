@@ -7,7 +7,8 @@ var express     = require('express'),
     request     = require('request'),
     dotenv      = require('dotenv'),
     striptags   = require('striptags'),
-    jsonfile    = require('jsonfile');
+    jsonfile    = require('jsonfile'),
+    _           = require('underscore');
 
 //Load environment variables
 
@@ -37,20 +38,27 @@ app.get('/', function(req, res) {
 //Called from the client in order to pull data from Meetup, add it to the DB, and create a local JSON file
 app.post('/api/update_meetup_data', function(req,res,next) {
     
-    var topic = "Bluemix"; //Find groups with the topic "bluemix"
+    console.log("POST!");
     
-    getTopicIdFromMeetupAPI(topic, function(topicID){
+    var topics = ["racquetball"]; //Find groups with the topic "bluemix"
+    
+    getTopicIdsFromMeetupAPI(topics, function(topicIDList){
         
-        getGroupsByTopicIdFromMeetupAPI(topicID, function(groupList){
+        getGroupsByTopicIdsFromMeetupAPI(topicIDList, function(groupList){
                 
             var groupIdList = createGroupIdList(groupList); //form list of just the group ids
             
             getEventsByGroupIdListFromMeetupAPI(groupIdList, function(eventList){
             
+                //Make sure there are no duplicates in the events list
+                console.log("Events before deleting duplicates: " + eventList.length);
+                eventList= _.uniq(eventList, false, function(e){return e.id}); 
+                console.log("Events after deleting duplicates: " + eventList.length);
+                
                 //Convert Meetup API JSON into local storage JSON format
                 var groupListToSave = formatGroupList(groupList);
                 var eventListToSave = formatEventList(eventList);
-            
+                
                 //Calculate average events per month for each group
                 calculateEventMetricsForGroups( groupList, eventList );
 
@@ -96,59 +104,135 @@ app.post('/api/update_meetup_data', function(req,res,next) {
 });
 
 
-//Using Meetup API, finds "Topic ID" based on a "Topic" and passes it to a callback function
-function getTopicIdFromMeetupAPI(topic, cb){
+//Using Meetup API, finds "Topic ID"s based on items in the topic list "Topic" and passes it to a callback function
+//Needs to make multiple requests to get all topic ids for topics in the list
+function getTopicIdsFromMeetupAPI(topics, cb){
+    
+    var resultsToReturn = [];
+    var topicsIndex = 0;
+    
     var url = 'http://api.meetup.com/topics';
-    request({
-        method: 'GET', 
-        url: url,
-        qs: {name: topic, key: meetupApiKey, page: 20}
-        }, 
-        function (error, response, body) {
-            if (!error && response.statusCode == 200) {
-                console.log("Success topic find!");
-                var bodyObj = JSON.parse(response.body);
-                if (bodyObj.results.length == 0){
-                    return console.log("No matching results.");
-                }
-                else{
-                    return cb(bodyObj.results[0].id);
-                }
-            }    
-            else if (error){
-                return console.log("Error: " + error);
+    
+    //Start first request
+    (topics.length > 0) ? launchEventsRequest(topics[topicsIndex]) : console.log("no topic Ids provided"); 
+ 
+    function eventsRequestCallback (error, response, body) {
+        
+        if (!error && response.statusCode == 200) {
+            
+            var bodyObj = JSON.parse(response.body);
+
+            if ( bodyObj.results.length != 0 ){
+                resultsToReturn.push(bodyObj.results[0].id); //append topic id of first result to the array to return
+
+                console.log("Success topic find: " + bodyObj.results[0].name );
+                
             }
             else{
-                return console.log("Find topics Status code: " + response.statusCode + ": " + response.body);
+                console.log("No match found for this topic.");
             }
-        } 
-    )  
+            
+            //Launch another request for the next topic Id if there are more topics left to search for
+            if (++topicsIndex < topics.length ){
+                launchEventsRequest(topics[topicsIndex]);
+                return;
+            }
+            else{
+                console.log("No more topics left to search for. Results length is: " + resultsToReturn.length);
+                return cb(resultsToReturn);
+            }
+       
+        }    
+        else if (error){
+            return console.log("Topics find Error: " + error);
+        }
+        else{
+            return console.log("Find topics Status code: " + response.statusCode + ": " + response.body);
+        }
+    }
+        
+    function launchEventsRequest(topic){
+        request({
+            method: 'GET', 
+            url: url,
+            qs: {name: topic, key: meetupApiKey, page: 20}
+            }, 
+            eventsRequestCallback 
+        )  
+    }
+    
 }
 
 //Using Meetup API, finds a list of groups based on a "Topic ID" and passes it to a callback function
-function getGroupsByTopicIdFromMeetupAPI(topic_id, cb) {
+function getGroupsByTopicIdsFromMeetupAPI(topic_id_list, cb) {
     console.log("Group find request");
+    
+    var topicIdList = topic_id_list;
+    
+    var topicIdString = topicIdList.join();
+    
     var url = 'http://api.meetup.com/find/groups';
-    request({
-        method: 'GET', 
-        url: url,
-        qs: {topic_id: topic_id, key: meetupApiKey, radius: "global", page: 200}
-        }, 
-        function (error, response, body) {
-            if (!error && response.statusCode == 200) {
-                //console.log("Success group find: " + response.body);
-                console.log("Success group find!!");
-                var bodyObj = JSON.parse(response.body);
-                return cb(bodyObj);
-            }    
-            else if (error){
-                return console.log("Error: " + error);
+    
+    //The max page size is 200, make multiple requests in a row to gather all events
+    var offset = 0;
+    var resultsToReturn = [];
+    
+    //Start first request
+    launchGroupsRequest(0); 
+    
+    function groupsRequestCallback (error, response, body) {
+        
+        if (!error && response.statusCode == 200) {
+            console.log("Success group find offset: " + offset);
+            
+            var bodyObj = JSON.parse(response.body);
+            
+            //console.log(bodyObj);
+            
+            //console.log(Object.keys(response.headers));
+            //console.log(response.headers['x-rate-limit-limit']);
+            //console.log(response.headers['x-rate-limit-remaining']);
+            //console.log(response.headers['x-rate-limit-reset']);
+            
+            var link;
+            (response.headers.link) ? link = response.headers.link : link = "";
+            var totalCount = response.headers['x-total-count'];
+                
+            //console.log(Object.keys(bodyObj));
+            Array.prototype.push.apply(resultsToReturn, bodyObj); //append new results to the array to return
+            //console.log("Results to return" + resultsToReturn);
+            
+            console.log("Group total count: " + totalCount);
+            
+            //Launch another request with an incremented offset if the previous result's metadata has a "next url" listed
+            if (link.includes("next")){
+                offset++;
+                launchGroupsRequest(offset);
+                return;
             }
             else{
-                return console.log("Find Groups Status code: " + response.statusCode + ": " + response.body);
-            }
-        } 
-    )
+                console.log("No more groups left. Results length is: " + resultsToReturn.length);
+                //console.log(resultsToReturn);
+                return cb(resultsToReturn);
+            }         
+        }    
+        else if (error){
+            return console.log("Error: " + error);
+        }
+        else{
+            return console.log("Find Groups Status code: " + response.statusCode + ": " + response.body);
+        }
+    }
+    
+    function launchGroupsRequest(offset){
+        request({
+                method: 'GET', 
+                url: url,
+                qs: {topic_id: topicIdString, key: meetupApiKey, page: 200, offset: offset, radius: "global", page: 200}
+            },
+            groupsRequestCallback
+        )  
+    }
 
 };
 
@@ -156,59 +240,84 @@ function getEventsByGroupIdListFromMeetupAPI(group_id_list, cb) {
     
     console.log("Event find request");
     
+    var allEventsList = [];
+    
+    //Since max size for group_id_list is 200, we have to seperate the list up and only call with 200 at a time
     var groupIdList = group_id_list;
     
-    //Convert this list into comma seperated string
-    var groupIdString = groupIdList.join();
+    var chunkStartIndex = 0;
+    //Request with first 200 groups in list
+    launch200GroupIdsRequest(chunkStartIndex);
     
-    var url = 'http://api.meetup.com/2/events';
-    
-    //The max page size is 200, make multiple requests in a row to gather all events
-    var offset = 0;
-    var resultsToReturn = [];
-    
-    //Start first request
-    launchEventsRequest(offset); 
- 
-    function eventsRequestCallback (error, response, body) {
+    function launch200GroupIdsRequestCallback(results){
+        Array.prototype.push.apply(allEventsList, results);
         
-        if (!error && response.statusCode == 200) {
-            console.log("Success event find offset: " + offset);
-            var bodyObj = JSON.parse(response.body);
-
-            Array.prototype.push.apply(resultsToReturn, bodyObj.results); //append new results to the array to return
-            
-            console.log("Total count: " + bodyObj.meta.total_count);
-            
-            //Launch another request with an incremented offset if the previous result's metadata has a "next url" listed
-            if (bodyObj.meta.next){
-                offset++;
-                launchEventsRequest(offset);
-                return;
-            }
-            else{
-                console.log("No more events left. Results length is: " + resultsToReturn.length);
-                return cb(resultsToReturn);
-            }
-            
-            
-        }    
-        else if (error){
-            return console.log("Error: " + error);
+        //condition to launch another groupId request
+        if (chunkStartIndex + 200 < groupIdList.length){
+            chunkStartIndex += 200; //Increment the chunk index
+            launch200GroupIdsRequest(chunkStartIndex);
         }
-        else{
-            return console.log("Find Events Status code: " + response.statusCode + ": " + response.body);
+        else {
+            console.log("Total events found: " + allEventsList.length );
+            cb(allEventsList);
         }
     }
-        
-    function launchEventsRequest(offset){
-        request({
-            method: 'GET', 
-            url: url,
-            qs: {group_id: groupIdString, key: meetupApiKey, page: 200, offset: offset, limited_events: true, status: "upcoming,past", text_format: "plain"}
-            }, 
-            eventsRequestCallback 
-        )  
+    
+    function launch200GroupIdsRequest(index) {
+        //Convert this list into comma seperated string
+        var groupIdString = groupIdList.slice(index, index+200).join();
+
+        console.log("Finding events for " + groupIdList.slice(index, index+200).length + " groups...");
+
+        var url = 'http://api.meetup.com/2/events';
+
+        //The max page size is 200, make multiple requests in a row to gather all events
+        var offset = 0;
+        var resultsToReturn = [];
+
+        //Start first request
+        launchEventsRequest(offset); 
+
+        function eventsRequestCallback (error, response, body) {
+
+            if (!error && response.statusCode == 200) {
+                console.log("Success event find offset: " + offset);
+                var bodyObj = JSON.parse(response.body);
+
+                Array.prototype.push.apply(resultsToReturn, bodyObj.results); //append new results to the array to return
+
+                console.log("Events total count: " + bodyObj.meta.total_count);
+
+                //Launch another request with an incremented offset if the previous result's metadata has a "next url" listed
+                if (bodyObj.meta.next){
+                    offset++;
+                    launchEventsRequest(offset);
+                    return;
+                }
+                else{
+                    console.log("Events found in this batch: " + resultsToReturn.length);
+                    return launch200GroupIdsRequestCallback(resultsToReturn);
+                }
+
+
+            }    
+            else if (error){
+                return console.log("Error: " + error);
+            }
+            else{
+                return console.log("Find Events Status code: " + response.statusCode + ": " + response.body);
+            }
+        }
+
+        function launchEventsRequest(offset){
+            request({
+                method: 'GET', 
+                url: url,
+                qs: {group_id: groupIdString, key: meetupApiKey, page: 200, offset: offset, limited_events: true, status: "upcoming,past", text_format: "plain"}
+                }, 
+                eventsRequestCallback 
+            )  
+        }
     }
     
         
@@ -237,7 +346,7 @@ function addAllEventsToDB(eventList, cb){
     Event.collection.drop();
     Event.collection.insert(eventList, function(err, docs){
         if (err) {
-            return cb({message: "Error adding events to DB"});
+            return cb({message: "Error adding events to DB" + err.message});
         }else{
             return cb();
         }
@@ -417,11 +526,6 @@ function calculateEventMetricsForGroups( groupList, eventList ){
             }    
         }
         
-        
-        //Fast way to calculate sum of array
-        function add(a, b) {
-            return a + b;
-        }
         var averageEventsPerMonth = Math.round ( ( eventsLast6Months.reduce(add, 0) / 6) * 100 ) / 100;
         var averageYesRSVPsPerEvent = 0;
         if (yesRSVPs.length != 0) {
@@ -436,6 +540,11 @@ function calculateEventMetricsForGroups( groupList, eventList ){
         groupList[i].avg_participation_rate = avgParticipationRate;
         
     }  
+}
+
+//Utility add function to help calculate sums of arrays
+function add(a, b) {
+    return a + b;
 }
 
 var port = process.env.VCAP_APP_PORT || 3000;
