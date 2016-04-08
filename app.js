@@ -40,11 +40,13 @@ app.post('/api/update_meetup_data', function(req,res,next) {
     
     console.log("POST!");
     
-    var topics = ["racquetball"]; //Find groups with the topic "bluemix"
+    var topics = ["ibm", "ibm bluemix", "bluemix"]; //Find groups with the topic "bluemix"
     
-    getTopicIdsFromMeetupAPI(topics, function(topicIDList){
+    getTopicIdsFromMeetupAPI(topics, function(topicList){
         
-        getGroupsByTopicIdsFromMeetupAPI(topicIDList, function(groupList){
+        var topicIdList = createTopicIdList(topicList); //form list of just the topic ids
+        
+        getGroupsByTopicIdsFromMeetupAPI(topicIdList, function(groupList){
                 
             var groupIdList = createGroupIdList(groupList); //form list of just the group ids
             
@@ -54,50 +56,60 @@ app.post('/api/update_meetup_data', function(req,res,next) {
                 console.log("Events before deleting duplicates: " + eventList.length);
                 eventList= _.uniq(eventList, false, function(e){return e.id}); 
                 console.log("Events after deleting duplicates: " + eventList.length);
-                
+
                 //Convert Meetup API JSON into local storage JSON format
-                var groupListToSave = formatGroupList(groupList);
+                var topicListToSave = topicList;
+                var groupListToSave = formatGroupList(groupList, topicIdList.join());
                 var eventListToSave = formatEventList(eventList);
                 
                 //Calculate average events per month for each group
                 calculateEventMetricsForGroups( groupList, eventList );
 
-                
-                //Write Groups to local JSON file
-                console.log("Writing groups.json local file...");
-                var groupJSONFile = __dirname + '/public/meetup_data/groups.json';
-                jsonfile.writeFile(groupJSONFile, groupListToSave, function (err) {
+                //Write topics to local JSON file
+                console.log("Writing topics.json local file...");
+                var topicJSONFile = __dirname + '/public/meetup_data/topics.json';
+                jsonfile.writeFile(topicJSONFile, topicListToSave, function (err) {
                     if (err){
-                        return console.log("Error writing groups.json local file: " + err);
+                        return console.log("Error writing topics.json local file: " + err);
                     }
-                    console.log("Groups.json written successfully.");
-                    
-                    //Write Events to local JSON file
-                    console.log("Writing events.json local file...");
-                    var eventJSONFile = __dirname + '/public/meetup_data/events.json';
-                    jsonfile.writeFile(eventJSONFile, eventListToSave, function (err) {
+                    console.log("Topics.json written successfully");
+                
+                    //Write Groups to local JSON file
+                    console.log("Writing groups.json local file...");
+                    var groupJSONFile = __dirname + '/public/meetup_data/groups.json';
+                    jsonfile.writeFile(groupJSONFile, groupListToSave, function (err) {
                         if (err){
-                            return console.log("Error writing events.json local file: " + err);
+                            return console.log("Error writing groups.json local file: " + err);
                         }
-                        console.log("Events.json written successfully.");
-                        
-                        //Add Groups to the MongoDB database
-                        console.log("Adding groups to DB...");
-                        addAllGroupsToDB(groupListToSave, function(err){
+                        console.log("Groups.json written successfully.");
+
+                        //Write Events to local JSON file
+                        console.log("Writing events.json local file...");
+                        var eventJSONFile = __dirname + '/public/meetup_data/events.json';
+                        jsonfile.writeFile(eventJSONFile, eventListToSave, function (err) {
                             if (err){
-                                return console.log("Error adding groups to DB: " + err.message); 
+                                return console.log("Error writing events.json local file: " + err);
                             }
-                            console.log("Groups added successfully.");
-                        
-                            addAllEventsToDB(eventListToSave, function(err){
+                            console.log("Events.json written successfully.");
+
+                            //Add Groups to the MongoDB database
+                            console.log("Adding groups to DB...");
+                            addAllGroupsToDB(groupListToSave, function(err){
                                 if (err){
-                                    return console.log("Error adding events to DB: " + err.message); 
+                                    return console.log("Error adding groups to DB: " + err.message); 
                                 }
-                                console.log("Events added successfully.");
-                            }); 
-                        });  
-                    }); 
-                });       
+                                console.log("Groups added successfully.");
+
+                                addAllEventsToDB(eventListToSave, function(err){
+                                    if (err){
+                                        return console.log("Error adding events to DB: " + err.message); 
+                                    }
+                                    console.log("Events added successfully.");
+                                }); 
+                            });  
+                        }); 
+                    });   
+                });
             });                    
         });     
     });
@@ -123,7 +135,7 @@ function getTopicIdsFromMeetupAPI(topics, cb){
             var bodyObj = JSON.parse(response.body);
 
             if ( bodyObj.results.length != 0 ){
-                resultsToReturn.push(bodyObj.results[0].id); //append topic id of first result to the array to return
+                resultsToReturn.push({id: bodyObj.results[0].id, name: bodyObj.results[0].name } ); //append topic id of first result to the array to return
 
                 console.log("Success topic find: " + bodyObj.results[0].name );
                 
@@ -138,7 +150,7 @@ function getTopicIdsFromMeetupAPI(topics, cb){
                 return;
             }
             else{
-                console.log("No more topics left to search for. Results length is: " + resultsToReturn.length);
+                console.log("Total topics found: " + resultsToReturn.length);
                 return cb(resultsToReturn);
             }
        
@@ -205,13 +217,14 @@ function getGroupsByTopicIdsFromMeetupAPI(topic_id_list, cb) {
             console.log("Group total count: " + totalCount);
             
             //Launch another request with an incremented offset if the previous result's metadata has a "next url" listed
-            if (link.includes("next")){
+            if (link.includes("next") && offset < 4){
                 offset++;
                 launchGroupsRequest(offset);
                 return;
             }
             else{
-                console.log("No more groups left. Results length is: " + resultsToReturn.length);
+                if (offset >= 4) console.log("Group cap of 1000 reached.");
+                console.log("Total groups found: " + resultsToReturn.length);
                 //console.log(resultsToReturn);
                 return cb(resultsToReturn);
             }         
@@ -228,7 +241,7 @@ function getGroupsByTopicIdsFromMeetupAPI(topic_id_list, cb) {
         request({
                 method: 'GET', 
                 url: url,
-                qs: {topic_id: topicIdString, key: meetupApiKey, page: 200, offset: offset, radius: "global", page: 200}
+                qs: {topic_id: topicIdString, key: meetupApiKey, page: 200, offset: offset, fields: "topics", radius: "global", page: 200}
             },
             groupsRequestCallback
         )  
@@ -267,6 +280,8 @@ function getEventsByGroupIdListFromMeetupAPI(group_id_list, cb) {
         //Convert this list into comma seperated string
         var groupIdString = groupIdList.slice(index, index+200).join();
 
+        //console.log(groupIdList.slice(index, index+200));
+        
         console.log("Finding events for " + groupIdList.slice(index, index+200).length + " groups...");
 
         var url = 'http://api.meetup.com/2/events';
@@ -286,15 +301,16 @@ function getEventsByGroupIdListFromMeetupAPI(group_id_list, cb) {
 
                 Array.prototype.push.apply(resultsToReturn, bodyObj.results); //append new results to the array to return
 
-                console.log("Events total count: " + bodyObj.meta.total_count);
+                console.log("Events count for this batch: " + bodyObj.meta.total_count);
 
                 //Launch another request with an incremented offset if the previous result's metadata has a "next url" listed
-                if (bodyObj.meta.next){
+                if (bodyObj.meta.next && offset < 14){ //this offset check caps events at 3000 results for each "batch" of 200 groups
                     offset++;
                     launchEventsRequest(offset);
                     return;
                 }
                 else{
+                    if (offset >= 14) console.log("Event cap of 3000 reached.");
                     console.log("Events found in this batch: " + resultsToReturn.length);
                     return launch200GroupIdsRequestCallback(resultsToReturn);
                 }
@@ -313,7 +329,9 @@ function getEventsByGroupIdListFromMeetupAPI(group_id_list, cb) {
             request({
                 method: 'GET', 
                 url: url,
-                qs: {group_id: groupIdString, key: meetupApiKey, page: 200, offset: offset, limited_events: true, status: "upcoming,past", text_format: "plain"}
+                qs: {group_id: groupIdString, key: meetupApiKey, page: 200, offset: offset, limited_events: true, status: "past", time: "-6m,0d", desc: "true", text_format: "plain"}
+                //can add "upcoming" seperated by a comma to "status" to include those as well.
+                //"-6m,0d" means events are only from 6 months ago or later
                 }, 
                 eventsRequestCallback 
             )  
@@ -377,7 +395,11 @@ function addAllGroupsToDB(groupList, cb){
  
 };
 
-var formatGroupList = function(list){
+var formatGroupList = function(list, topic_id_list_string){
+    
+    var topic_id_list = topic_id_list_string.split(",").map(Number);
+    //console.log(topic_id_list);
+    
     for (var i=0; i < list.length; i++){
         //Delete unneccessary properties
         list[i].score && delete list[i].score;
@@ -394,6 +416,18 @@ var formatGroupList = function(list){
         if (list[i].description){ //strip html tags
             list[i].description = striptags(list[i].description);
         }
+        
+        var reducedTopicIdList = [];
+        if (list[i].topics){
+            //Only add "topic" to the group object if its a topic the user searched for
+            for (var j=0; j < list[i].topics.length; j++){
+                //console.log(list[i].topics[j].id);
+                if ( topic_id_list.indexOf(list[i].topics[j].id) != -1 ){
+                    reducedTopicIdList.push({id: list[i].topics[j].id, name: list[i].topics[j].name});
+                }
+            }
+        }
+        list[i].topics = reducedTopicIdList;
         
         
        /* if (list[i].created){ //change creation date into Date object
@@ -462,6 +496,16 @@ var createGroupIdList = function(groupList){
     }   
     
     return groupIdList;
+}
+
+var createTopicIdList = function(topicList){
+    var topicIdList = [];
+    
+    for (var i=0; i < topicList.length; i++){
+        topicIdList.push(topicList[i].id);
+    }   
+    
+    return topicIdList;
 }
 
 
