@@ -241,7 +241,7 @@ function getGroupsByTopicIdsFromMeetupAPI(topic_id_list, cb) {
         request({
                 method: 'GET', 
                 url: url,
-                qs: {topic_id: topicIdString, key: meetupApiKey, page: 200, offset: offset, fields: "topics", radius: "global", page: 200}
+                qs: {topic_id: topicIdString, key: meetupApiKey, page: 200, offset: offset, fields: "topics", radius: "global"}
             },
             groupsRequestCallback
         )  
