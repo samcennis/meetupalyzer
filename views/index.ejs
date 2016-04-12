@@ -51,24 +51,57 @@
         </div>
 
         <div class="divider"></div>
-
-        <div id="eventsPerMonthParticipationGraph" style="width: 100%; height:400px;" class="row section">
+        
+        <!-- TODO: dynamically populate input fields -->
+        <div id="eventsPerMonthParticipation" class="row">
+            <div class="input-field col s6">
+                <select class="topicFilterSelect">
+                    <option value="0" selected>All topics</option>
+                    <option value="71289">IBM</option>
+                    <option value="1488192">IBM Bluemix</option>
+                    <option value="1481632">Bluemix</option>
+                </select>
+                <label>Topic</label>
+            </div>
+            <div class="input-field col s6">
+                <select class="countryFilterSelect">
+                    <option value="0" selected>All Countries</option>
+                    <option value="USA">USA</option>
+                    <option value="Canada">Canada</option>
+                    <option value="United Kingdom">UK</option>
+                </select>
+                <label>Country</label>
+            </div>
+            <div id="eventsPerMonthParticipationGraph" style="width: 100%; height:400px;" class="row section chart">
+            </div>
         </div>
 
         <div class="divider"></div>
-        
-        <!-- TODO: dynamically populate input fields -->
-        <div class="input-field col s12">
-            <select id="creationDateTopicFilterSelect">
-                <option value="0" selected>All topics</option>
-                <option value="71289">IBM</option>
-                <option value="1488192">IBM Bluemix</option>
-                <option value="1481632">Bluemix</option>
-            </select>
-            <label>Materialize Select</label>
-        </div>
 
-        <div id="membersByCreationDateChart" style="width: 100%; height:400px;" class="row section">
+        <!-- TODO: dynamically populate input fields -->
+        <div id="membersByCreationDate" class="row">
+            <div class="input-field col s6">
+                <select class="topicFilterSelect">
+                    <option value="0" selected>All topics</option>
+                    <option value="71289">IBM</option>
+                    <option value="1488192">IBM Bluemix</option>
+                    <option value="1481632">Bluemix</option>
+                </select>
+                <label>Topic</label>
+            </div>
+
+            <div class="input-field col s6">
+                <select class="countryFilterSelect">
+                    <option value="0" selected>All Countries</option>
+                    <option value="USA">USA</option>
+                    <option value="Canada">Canada</option>
+                    <option value="United Kingdom">UK</option>
+                </select>
+                <label>Country</label>
+            </div>
+
+            <div id="membersByCreationDateChart" style="width: 100%; height:400px;" class="col s12 section chart">
+            </div>
         </div>
 
         <div class="divider"></div>
