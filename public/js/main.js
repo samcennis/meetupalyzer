@@ -214,7 +214,7 @@ function ready() {
                 }, "Groups", creationDateData);
 
                 //Most Common Day to Schedule Event
-                createColumnChart('#mostCommonDayChart', 'Event Day Popularity', '', 'Number of Events', 'linear', '{point.y}', 'Popularity', mostCommonDayData);
+                createColumnChart('#mostCommonDayChart', 'Event Day Popularity', '', 'Number of Events', 'linear', '{point.y} events', 'Popularity', mostCommonDayData);
 
 
                 //TODO: Make this a seperate function
@@ -389,6 +389,7 @@ function ready() {
                 , colorByPoint: true
                 , data: data
         }]
+            , credits: false
         });
 
 
