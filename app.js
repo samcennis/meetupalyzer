@@ -516,8 +516,7 @@ function calculateEventMetricsForGroups( groupList, eventList ){
     
     //Array contains: [ first day of the current month, 1st day of last month, ... , 1st day of 6 months ago] ( 7 entries ) 
     var datesLast6Months = [];
-    var monthsAgo;
-    for ( monthsAgo = 0; monthsAgo <= 6; monthsAgo++){
+    for ( var monthsAgo = 0; monthsAgo <= 6; monthsAgo++){
         datesLast6Months.push( new Date(currentYear, currentMonth - monthsAgo, 1, 0, 0, 0).getTime() );
     }
     
@@ -539,6 +538,7 @@ function calculateEventMetricsForGroups( groupList, eventList ){
                 
                 var eventDate = eventList[j].time; //eventDate is ms since epoch
                 
+                //Calculate events by month
                 if ( eventDate > datesLast6Months[0] ){
                     //Event is in the current month, so cannot calculate an average
                     continue;
@@ -567,6 +567,7 @@ function calculateEventMetricsForGroups( groupList, eventList ){
                     eventsLast6Months[5]++;
                     yesRSVPs.push(eventList[j].yes_rsvp_count);
                 }    
+                
             }    
         }
         

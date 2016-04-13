@@ -4,6 +4,7 @@
 <head>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.5/css/materialize.min.css">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.1/css/font-awesome.min.css">
     <link rel="stylesheet" href="stylesheets/style.css">
     <title>IBM Meetupalyzer</title>
     <meta charset="utf-8">
@@ -14,10 +15,10 @@
 <body>
     <div class="container">
         <div class="row">
-            <h1>IBM Meetupalyzer</h1>
+            <h1>Meetupalyzer</h1>
         </div>
         <div class="row">
-            <h5>Gain insight by visualizing data about IBM-related Meetup.com groups.</h5>
+            <h5>Gain insight by visualizing data about Meetup.com groups.</h5>
         </div>
         <div class>
             <p>Currently displaying data on Meetup.com groups with the following topics: <i>"Bluemix", "IBM Bluemix", "IBM", "Cloud Foundry"</i></p>
@@ -29,15 +30,16 @@
 
         </div>
         <div class="divider"></div>
-
+        <h4>Where are these groups located?</h4>
         <div id="groupLocationMap" style="width: 100%; max-height:700px;" class="row section">
         </div>
 
         <div class="divider"></div>
 
         <div id="topAverageAttendanceDiv" class="row section">
-            <p class="title">Highest Attended Meetups</p>
-            <table id="topAverageAttendanceTable" class="striped">
+        <h4>Which of them are attended the most?</h4>
+            <p class="title">Top 10 Most Attended Meetups</p>
+            <table id="topAverageAttendanceTable" class="striped tablesorter">
                 <thead>
                     <tr>
                         <th>Group Name</th>
@@ -51,24 +53,15 @@
         </div>
 
         <div class="divider"></div>
-        
-        <!-- TODO: dynamically populate input fields -->
+        <h4>How does the number of events held per month affect participation?</h4>
         <div id="eventsPerMonthParticipation" class="row">
             <div class="input-field col s6">
-                <select class="topicFilterSelect">
-                    <option value="0" selected>All topics</option>
-                    <option value="71289">IBM</option>
-                    <option value="1488192">IBM Bluemix</option>
-                    <option value="1481632">Bluemix</option>
+                <select class="topicFilterSelect dynamicPop">
                 </select>
                 <label>Topic</label>
             </div>
             <div class="input-field col s6">
-                <select class="countryFilterSelect">
-                    <option value="0" selected>All Countries</option>
-                    <option value="USA">USA</option>
-                    <option value="Canada">Canada</option>
-                    <option value="United Kingdom">UK</option>
+                <select class="countryFilterSelect dynamicPop">
                 </select>
                 <label>Country</label>
             </div>
@@ -77,25 +70,16 @@
         </div>
 
         <div class="divider"></div>
-
-        <!-- TODO: dynamically populate input fields -->
+        <h4>What is each group's creation date?</h4>
         <div id="membersByCreationDate" class="row">
             <div class="input-field col s6">
-                <select class="topicFilterSelect">
-                    <option value="0" selected>All topics</option>
-                    <option value="71289">IBM</option>
-                    <option value="1488192">IBM Bluemix</option>
-                    <option value="1481632">Bluemix</option>
+                <select class="topicFilterSelect dynamicPop">
                 </select>
                 <label>Topic</label>
             </div>
 
             <div class="input-field col s6">
-                <select class="countryFilterSelect">
-                    <option value="0" selected>All Countries</option>
-                    <option value="USA">USA</option>
-                    <option value="Canada">Canada</option>
-                    <option value="United Kingdom">UK</option>
+                <select class="countryFilterSelect dynamicPop">
                 </select>
                 <label>Country</label>
             </div>
@@ -126,12 +110,13 @@
 
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.5/js/materialize.min.js"></script>
-    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.4.4/underscore-min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.4.4/underscore-min.js"></script>
     <script src="http://code.highcharts.com/highcharts.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.3.6/proj4.js"></script>
     <script src="//code.highcharts.com/maps/modules/map.js"></script>
     <script src="https://code.highcharts.com/mapdata/custom/world.js"></script>
-    <script type="text/javascript" src="js/main.js"></script>
+    <script src="lib/tablesorter/jquery.tablesorter.min.js"></script> 
+    <script src="js/main.js"></script>
 
 </body>
 

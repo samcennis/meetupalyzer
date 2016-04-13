@@ -30,7 +30,6 @@ function ready() {
         updateMeetupData("Bluemix");
     });
 
-
     //Filter selection click handlers
     $("#membersByCreationDate").find(".topicFilterSelect select").change(function () {
         updateFilterScatterPlot("#membersByCreationDate", groupFilter);
@@ -95,7 +94,7 @@ function ready() {
                 //console.log("Events: " + eventsJSON);
                 //console.log("Topics: " + topicsJSON);
 
-                $("#summary").append("<h3><b>" + groupsJSON.length + "</b> groups and <b>" + eventsJSON.length + "</b> events analyzed.</h3>");
+                $("#summary").append("<h3><b>" + groupsJSON.length + "</b> groups and <b>" + eventsJSON.length + "</b> events related to these topics analyzed.</h3>");
                 $("#summary").show();
 
                 var creationDateData = [];
@@ -107,7 +106,8 @@ function ready() {
                 var topicIds = topicIdsFromJSON(topicsJSON);
                 var countries = countriesFromJSON(groupsJSON);
 
-                //Set up arrays of unique countries and states for more filters
+                //Populate filter selection elements
+                populateFilterSelectionElements(topicsJSON, countries);
 
                 //Intialize groups filters
                 groupFilter = initializeGroupFilter(topicIds, countries);
@@ -166,6 +166,9 @@ function ready() {
                     $('#topAverageAttendanceTable > tbody:last-child').append('<tr><td><a target="_blank" href="http://www.meetup.com/' + groupsJSON[top10_attended[j][0]].urlname + '">' + groupsJSON[top10_attended[j][0]].name + '</a></td><td>' + groupsJSON[top10_attended[j][0]].avg_yes_rsvps_per_event_last_6_months + '</td><td>' + groupsJSON[top10_attended[j][0]].members + '</td><td>' + (Math.round((groupsJSON[top10_attended[j][0]].avg_participation_rate * 100) * 100) / 100) + '%</td></tr>');
 
                 }
+                
+                //Sort on second column and disable sorting on the first column
+                $("#topAverageAttendanceTable").tablesorter( {sortList: [[1,1]], headers: { 0: { sorter: false}}});
 
 
                 createScatterPlot('#eventsPerMonthParticipationGraph', 'Average Number of Events Per Month vs. Participation Rate', 'Averages calculated from events held in the past 6 months.', 'Average Events Hosted By Meetup.com Group Per Month (Last 6 Months)', 'linear', 'Avg. Participation Rate', 'linear', function (_this) {
@@ -330,6 +333,15 @@ function ready() {
                 countries.push(groupsJSON[i].localized_country_name);
             }
         }
+        
+        countries.sort();
+        
+        //Move USA to the front of the list if its there
+        var USAIndex = countries.indexOf("USA");
+        if (USAIndex != -1){
+            countries.splice(USAIndex, 1);
+        }
+        countries.unshift("USA");
 
         return countries;
     }
@@ -384,6 +396,30 @@ function ready() {
             }
         });
 
+    }
+    
+    function populateFilterSelectionElements(topicsJSON, countries){
+        //Add topic filters to all graphs
+        $(".topicFilterSelect.dynamicPop select").each(function(){
+            $(this).append($("<option />").val(0).text("All topics"));  
+            for (var i=0; i < topicsJSON.length; i++){
+                var topic = topicsJSON[i];
+                $(this).append($("<option />").val(topic.id).text(topic.name));   
+            }  
+            $(this).val(0); //set all as default
+        }); 
+            
+        //Add country filters to all graphs
+        $(".countryFilterSelect.dynamicPop select").each(function(){
+            $(this).append($("<option />").val(0).text("All countries"));  
+            for (var i=0; i < countries.length; i++){
+                var country = countries[i];
+                $(this).append($("<option />").val(country).text(country));   
+            }
+            $(this).val(0); //set all as default
+        });  
+        
+        $('select').material_select();
     }
 
     //Top 10 function from http://stackoverflow.com/a/483583
