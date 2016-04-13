@@ -5,7 +5,7 @@ function ready() {
 
     var groupFilter = {};
     var eventFilter = {}; //???
-    
+
     var creationDateFilter = []
 
 
@@ -48,16 +48,16 @@ function ready() {
 
     //div = container div of the chart to update
     //filter = what filter? (group, event)
-    function updateFilterScatterPlot(div, filter) { 
-        
+    function updateFilterScatterPlot(div, filter) {
+
         //Get state of all filters for this chart
-        var topicFilterId     = $(div).find(".topicFilterSelect select").val(); //0 if display all topics, or else topic ID to filter by
+        var topicFilterId = $(div).find(".topicFilterSelect select").val(); //0 if display all topics, or else topic ID to filter by
         var countryFilterName = $(div).find(".countryFilterSelect select").val(); //0 if display all countries, or else country to filter by
-        
+
         //Get "filter list" for each filter (true/false of if we should display each data point, or "all" if all should be displayed)
-        var topicFilterList =   (topicFilterId == 0) ? "all" : filter["topic"][topicFilterId];
+        var topicFilterList = (topicFilterId == 0) ? "all" : filter["topic"][topicFilterId];
         var countryFilterList = (countryFilterName == 0) ? "all" : filter["country"][countryFilterName];
-        
+
         //Get the chart
         var chart = $(div).find(".chart").highcharts();
 
@@ -78,7 +78,7 @@ function ready() {
                 }
             }, false); //Redraw false        
         }
-        
+
         chart.redraw(); //only redraw at the end
     }
 
@@ -99,6 +99,28 @@ function ready() {
 
                 var creationDateData = [];
                 var eventsPerMonthData = [];
+                var mostCommonDayData = [{
+                    name: "Sunday"
+                    , y: 0
+                }, {
+                    name: "Monday"
+                    , y: 0
+                }, {
+                    name: "Tuesday"
+                    , y: 0
+                }, {
+                    name: "Wednesday"
+                    , y: 0
+                }, {
+                    name: "Thursday"
+                    , y: 0
+                }, {
+                    name: "Friday"
+                    , y: 0
+                }, {
+                    name: "Saturday"
+                    , y: 0
+                }];
                 var mapData = [];
                 var yesRSVPsArray = [];
 
@@ -118,7 +140,7 @@ function ready() {
 
                     //Add this group's data to the filters
                     addToGroupFilter(groupFilter, topicIds, countries, groupsJSON[i])
-                    //console.log(groupFilter);
+                        //console.log(groupFilter);
 
                     yesRSVPsArray.push(groupsJSON[i].avg_yes_rsvps_per_event_last_6_months);
 
@@ -126,14 +148,14 @@ function ready() {
                     //TODO: Make this if statement compatible with filter (keep track of index?)
                     //if (groupsJSON[i].avg_events_per_month_last_6_months != 0 && groupsJSON[i].avg_participation_rate != 0) {
 
-                        eventsPerMonthData.push({
-                            "name": groupsJSON[i].name
-                            , "x": groupsJSON[i].avg_events_per_month_last_6_months
-                            , "y": groupsJSON[i].avg_participation_rate
-                            , "members": groupsJSON[i].members
-                            , "avg_yes_rsvps": groupsJSON[i].avg_yes_rsvps_per_event_last_6_months
-                            , "link": "http://www.meetup.com/" + groupsJSON[i].urlname
-                        });
+                    eventsPerMonthData.push({
+                        "name": groupsJSON[i].name
+                        , "x": groupsJSON[i].avg_events_per_month_last_6_months
+                        , "y": groupsJSON[i].avg_participation_rate
+                        , "members": groupsJSON[i].members
+                        , "avg_yes_rsvps": groupsJSON[i].avg_yes_rsvps_per_event_last_6_months
+                        , "link": "http://www.meetup.com/" + groupsJSON[i].urlname
+                    });
 
                     //}
 
@@ -155,6 +177,11 @@ function ready() {
                         , "link": "http://www.meetup.com/" + groupsJSON[i].urlname
                     })
 
+                    for (var j = 0; j < groupsJSON[i].num_events_each_day_of_week.length; j++) {
+                        //Add the number of events this day of the week to the totals
+                        mostCommonDayData[j].y += groupsJSON[i].num_events_each_day_of_week[j];
+                    }
+
                 }
 
                 console.log(groupFilter);
@@ -166,22 +193,34 @@ function ready() {
                     $('#topAverageAttendanceTable > tbody:last-child').append('<tr><td><a target="_blank" href="http://www.meetup.com/' + groupsJSON[top10_attended[j][0]].urlname + '">' + groupsJSON[top10_attended[j][0]].name + '</a></td><td>' + groupsJSON[top10_attended[j][0]].avg_yes_rsvps_per_event_last_6_months + '</td><td>' + groupsJSON[top10_attended[j][0]].members + '</td><td>' + (Math.round((groupsJSON[top10_attended[j][0]].avg_participation_rate * 100) * 100) / 100) + '%</td></tr>');
 
                 }
-                
-                //Sort on second column and disable sorting on the first column
-                $("#topAverageAttendanceTable").tablesorter( {sortList: [[1,1]], headers: { 0: { sorter: false}}});
 
+                //Sort on second column and disable sorting on the first column
+                $("#topAverageAttendanceTable").tablesorter({
+                    sortList: [[1, 1]]
+                    , headers: {
+                        0: {
+                            sorter: false
+                        }
+                    }
+                });
 
                 createScatterPlot('#eventsPerMonthParticipationGraph', 'Average Number of Events Per Month vs. Participation Rate', 'Averages calculated from events held in the past 6 months.', 'Average Events Hosted By Meetup.com Group Per Month (Last 6 Months)', 'linear', 'Avg. Participation Rate', 'linear', function (_this) {
                     return '<b>' + _this.point.name + '</b><br/>' + _this.point.x + ' event(s) per month<br/>Avg attendance: ' + _this.point.avg_yes_rsvps + ' people<br/>' + (Math.round((_this.point.y * 100) * 100) / 100) + '% participation (' + _this.point.members + ' total members)';
                 }, "Groups", eventsPerMonthData);
 
                 //Number of Members by Creation Date Graph
-                createScatterPlot('#membersByCreationDateChart', 'Number of Members by Creation Date', '', 'Meetup.com Group Creation Date', 'datetime', 'Member Count', 'linear', function(_this) { return '<b>' + _this.point.name + '</b><br/> Created ' + Highcharts.dateFormat('%b %e, %Y', new Date(_this.x)) + ' - ' + _this.y + ' members.' }, "Groups", creationDateData);
+                createScatterPlot('#membersByCreationDateChart', 'Number of Members by Creation Date', '', 'Meetup.com Group Creation Date', 'datetime', 'Member Count', 'linear', function (_this) {
+                    return '<b>' + _this.point.name + '</b><br/> Created ' + Highcharts.dateFormat('%b %e, %Y', new Date(_this.x)) + ' - ' + _this.y + ' members.'
+                }, "Groups", creationDateData);
+
+                //Most Common Day to Schedule Event
+                createColumnChart('#mostCommonDayChart', 'Event Day Popularity', '', 'Number of Events', 'linear', '{point.y}', 'Popularity', mostCommonDayData);
 
 
+                //TODO: Make this a seperate function
                 $('#groupLocationMap').highcharts('Map', {
-                   
-                    
+
+
                     title: {
                         text: 'Meetup.com Group Locations'
                     },
@@ -242,10 +281,10 @@ function ready() {
     });
 
     function createScatterPlot(div, title, subtitle, xAxisText, xAxisType, yAxisText, yAxisType, tooltipFormatterFunction, seriesName, data) {
-        
+
         var tooltipFunc = tooltipFormatterFunction;
         //var _this = this;
-        
+
         $(div).highcharts({
             chart: {
                 type: 'scatter'
@@ -312,6 +351,50 @@ function ready() {
         });
     }
 
+    function createColumnChart(div, title, subtitle, yAxisText, yAxisType, format, seriesName, data) {
+
+        $(div).highcharts({
+            chart: {
+                type: "column"
+            }
+            , title: {
+                text: title
+            }
+            , subtitle: {
+                text: subtitle
+            }
+            , xAxis: {
+                type: 'category'
+            }
+            , yAxis: {
+                title: {
+                    text: yAxisText
+                    , type: yAxisType
+                }
+            }
+            , legend: {
+                enabled: false
+            }
+            , plotOptions: {
+                series: {
+                    borderWidth: 0
+                    , dataLabels: {
+                        enabled: true
+                        , format: format
+                    }
+                }
+            }
+            , series: [{
+                name: seriesName
+                , colorByPoint: true
+                , data: data
+        }]
+        });
+
+
+
+    }
+
     function topicIdsFromJSON(topicsJSON) {
         var topicIds = [];
         //topicNames.push("all");
@@ -333,12 +416,12 @@ function ready() {
                 countries.push(groupsJSON[i].localized_country_name);
             }
         }
-        
+
         countries.sort();
-        
+
         //Move USA to the front of the list if its there
         var USAIndex = countries.indexOf("USA");
-        if (USAIndex != -1){
+        if (USAIndex != -1) {
             countries.splice(USAIndex, 1);
         }
         countries.unshift("USA");
@@ -397,28 +480,28 @@ function ready() {
         });
 
     }
-    
-    function populateFilterSelectionElements(topicsJSON, countries){
+
+    function populateFilterSelectionElements(topicsJSON, countries) {
         //Add topic filters to all graphs
-        $(".topicFilterSelect.dynamicPop select").each(function(){
-            $(this).append($("<option />").val(0).text("All topics"));  
-            for (var i=0; i < topicsJSON.length; i++){
+        $(".topicFilterSelect.dynamicPop select").each(function () {
+            $(this).append($("<option />").val(0).text("All topics"));
+            for (var i = 0; i < topicsJSON.length; i++) {
                 var topic = topicsJSON[i];
-                $(this).append($("<option />").val(topic.id).text(topic.name));   
-            }  
-            $(this).val(0); //set all as default
-        }); 
-            
-        //Add country filters to all graphs
-        $(".countryFilterSelect.dynamicPop select").each(function(){
-            $(this).append($("<option />").val(0).text("All countries"));  
-            for (var i=0; i < countries.length; i++){
-                var country = countries[i];
-                $(this).append($("<option />").val(country).text(country));   
+                $(this).append($("<option />").val(topic.id).text(topic.name));
             }
             $(this).val(0); //set all as default
-        });  
-        
+        });
+
+        //Add country filters to all graphs
+        $(".countryFilterSelect.dynamicPop select").each(function () {
+            $(this).append($("<option />").val(0).text("All countries"));
+            for (var i = 0; i < countries.length; i++) {
+                var country = countries[i];
+                $(this).append($("<option />").val(country).text(country));
+            }
+            $(this).val(0); //set all as default
+        });
+
         $('select').material_select();
     }
 

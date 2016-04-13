@@ -37,19 +37,25 @@
         <div class="divider"></div>
 
         <div id="topAverageAttendanceDiv" class="row section">
-        <h4>Which of them are attended the most?</h4>
+            <h4>Which of them are attended the most?</h4>
             <p class="title">Top 10 Most Attended Meetups</p>
             <table id="topAverageAttendanceTable" class="striped tablesorter">
                 <thead>
                     <tr>
                         <th>Group Name</th>
-                        <th>Average Attendance (Last 6 Months)</th>
+                        <th>Average "Yes" RSVPs (Last 6 Months)</th>
                         <th>Number Of Members</th>
                         <th>Participation Rate</th>
                     </tr>
                 </thead>
                 <tbody></tbody>
             </table>
+        </div>
+
+
+        <div class="divider"></div>
+        <h4>When is the most popular day to schedule an event?</h4>
+        <div id="mostCommonDayChart" style="width: 100%; height:400px;" class="row section chart">
         </div>
 
         <div class="divider"></div>
@@ -70,7 +76,7 @@
         </div>
 
         <div class="divider"></div>
-        <h4>What is each group's creation date?</h4>
+        <h4>When was each group created?</h4>
         <div id="membersByCreationDate" class="row">
             <div class="input-field col s6">
                 <select class="topicFilterSelect dynamicPop">
@@ -115,7 +121,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.3.6/proj4.js"></script>
     <script src="//code.highcharts.com/maps/modules/map.js"></script>
     <script src="https://code.highcharts.com/mapdata/custom/world.js"></script>
-    <script src="lib/tablesorter/jquery.tablesorter.min.js"></script> 
+    <script src="lib/tablesorter/jquery.tablesorter.min.js"></script>
     <script src="js/main.js"></script>
 
 </body>

@@ -520,8 +520,6 @@ function calculateEventMetricsForGroups( groupList, eventList ){
         datesLast6Months.push( new Date(currentYear, currentMonth - monthsAgo, 1, 0, 0, 0).getTime() );
     }
     
-    //console.log(datesLast6Months);
-
     var i, j;
     for (i = 0; i < groupList.length; i++ ) {
         
@@ -529,60 +527,80 @@ function calculateEventMetricsForGroups( groupList, eventList ){
         
         //Keep track of the number of events [last month, two months ago, ... , 6 months ago ] ( excludes current month, so 6 entries )
         var eventsLast6Months = [0,0,0,0,0,0];
-        var yesRSVPs = [];
+        var yesRSVPsLast6Months = [];
+        var eventsEachDayOfWeek = [0,0,0,0,0,0,0];
+        var yesRSVPsEachDayOfWeek = [[],[],[],[],[],[],[]];
+        
               
         for ( j = 0; j < eventList.length; j++){
             
             // Check to see if this event is in this group
             if (eventList[j].group_id == groupId) {
                 
-                var eventDate = eventList[j].time; //eventDate is ms since epoch
+                var eventDateMS = eventList[j].time + eventList[j].utc_offset; //eventDateMS is ms since epoch
                 
                 //Calculate events by month
-                if ( eventDate > datesLast6Months[0] ){
+                if ( eventDateMS > datesLast6Months[0] ){
                     //Event is in the current month, so cannot calculate an average
                     continue;
-                } else if ( eventDate > datesLast6Months[1] ) {
+                } else if ( eventDateMS > datesLast6Months[1] ) {
                     //Event was last month
                     eventsLast6Months[0]++;
-                    yesRSVPs.push(eventList[j].yes_rsvp_count);
-                } else if ( eventDate > datesLast6Months[2] ) {
+                    yesRSVPsLast6Months.push(eventList[j].yes_rsvp_count);
+                } else if ( eventDateMS > datesLast6Months[2] ) {
                     //Event was 2 months ago
                     eventsLast6Months[1]++;
-                    yesRSVPs.push(eventList[j].yes_rsvp_count);
-                } else if ( eventDate > datesLast6Months[3] ) {
+                    yesRSVPsLast6Months.push(eventList[j].yes_rsvp_count);
+                } else if ( eventDateMS > datesLast6Months[3] ) {
                     //Event was 3 months ago
                     eventsLast6Months[2]++;
-                    yesRSVPs.push(eventList[j].yes_rsvp_count);
-                } else if ( eventDate > datesLast6Months[4] ) {
+                    yesRSVPsLast6Months.push(eventList[j].yes_rsvp_count);
+                } else if ( eventDateMS > datesLast6Months[4] ) {
                     //Event was 4 months ago
                     eventsLast6Months[3]++;
-                    yesRSVPs.push(eventList[j].yes_rsvp_count);
-                } else if ( eventDate > datesLast6Months[5] ) {
+                    yesRSVPsLast6Months.push(eventList[j].yes_rsvp_count);
+                } else if ( eventDateMS > datesLast6Months[5] ) {
                     //Event was 5 months ago
                     eventsLast6Months[4]++;
-                    yesRSVPs.push(eventList[j].yes_rsvp_count);
-                } else if ( eventDate > datesLast6Months[6] ) {
+                    yesRSVPsLast6Months.push(eventList[j].yes_rsvp_count);
+                } else if ( eventDateMS > datesLast6Months[6] ) {
                     //Event was 6 months ago
                     eventsLast6Months[5]++;
-                    yesRSVPs.push(eventList[j].yes_rsvp_count);
+                    yesRSVPsLast6Months.push(eventList[j].yes_rsvp_count);
                 }    
                 
+                //Calculate events by day of the week
+                var eventDate = new Date(eventDateMS);
+                //Increment appropriate day of the week the event is scheduled on
+                eventsEachDayOfWeek[eventDate.getUTCDay()]++; 
+                //Add the number of attendees to 
+                yesRSVPsEachDayOfWeek[eventDate.getUTCDay()].push(eventList[j].yes_rsvp_count);
             }    
         }
         
         var averageEventsPerMonth = Math.round ( ( eventsLast6Months.reduce(add, 0) / 6) * 100 ) / 100;
-        var averageYesRSVPsPerEvent = 0;
-        if (yesRSVPs.length != 0) {
-            averageYesRSVPsPerEvent = Math.round ( ( yesRSVPs.reduce(add, 0) / yesRSVPs.length) * 100 ) / 100;
+        var averageYesRSVPsPerEventLast6Months = 0;
+        if (yesRSVPsLast6Months.length != 0) {
+            averageYesRSVPsPerEventLast6Months = Math.round ( ( yesRSVPsLast6Months.reduce(add, 0) / yesRSVPsLast6Months.length) * 100 ) / 100;
+        } 
+        var avgParticipationRate = Math.round ( ( averageYesRSVPsPerEventLast6Months / groupList[i].members ) * 100 ) / 100;
+        
+        var averageYesRSVPsEachDayOfWeek = [null,null,null,null,null,null,null];
+        for (var j=0; j < yesRSVPsEachDayOfWeek.length;j++){
+            //Check that there were events on that day of the week, then assign an average
+            if (yesRSVPsEachDayOfWeek[j].length != 0){
+                averageYesRSVPsEachDayOfWeek[j] = Math.round ( ( yesRSVPsEachDayOfWeek[j].reduce(add, 0) / yesRSVPsEachDayOfWeek[j].length) * 100 ) / 100;
+            }
+            //If there were no events that day, the average yes RSVPs for that day remains -1
         }
         
-        var avgParticipationRate = Math.round ( ( averageYesRSVPsPerEvent / groupList[i].members ) * 100 ) / 100;
-        
-        groupList[i].avg_yes_rsvps_per_event_last_6_months = averageYesRSVPsPerEvent;
+        groupList[i].avg_yes_rsvps_per_event_last_6_months = averageYesRSVPsPerEventLast6Months;
         groupList[i].avg_events_per_month_last_6_months = averageEventsPerMonth;
         groupList[i].num_events_last_6_months = eventsLast6Months;
         groupList[i].avg_participation_rate = avgParticipationRate;
+        
+        groupList[i].num_events_each_day_of_week = eventsEachDayOfWeek;
+        groupList[i].avg_yes_rsvps_per_event_each_day_of_week = averageYesRSVPsEachDayOfWeek;
         
     }  
 }
