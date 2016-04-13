@@ -14,104 +14,112 @@
 
 <body>
     <div class="container">
-        <div class="row">
-            <h1>Meetupalyzer</h1>
+        <div class="row valign-wrapper" style="height:200px;margin-top:120px">
+            <div class="valign" style="width: 100%">
+                <h1 class="center-align"><i class="material-icons medium">person_pin</i>Meetupalyzer</h1>
+                <h6 class="center-align">Gain insights by visualizing data about Meetup.com groups and events.</h6>
+            </div>
+
         </div>
-        <div class="row">
-            <h5>Gain insight by visualizing data about Meetup.com groups.</h5>
+        <div class="row section">
+            <div class="col s12 m12">
+                <div class="row valign-wrapper">
+                    <div class="input-field col s12 m9">
+                        <input id="topics-input" type="text" value="IBM, IBM Bluemix, BlueMix">
+                        <label id="topics-input-label" class="active" for="topics-input">Enter a comma-seperated list of Meetup topics to gather data on:</label>
+                    </div>
+                    <div class="col s12 m3 valign center-align">
+                        <a id="submitButton" class="waves-effect waves-light btn blue lighten-1"><i class="material-icons right">loop</i>Get Data</a>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class>
+
+        <div class="row" style="display: none;">
             <p>Currently displaying data on Meetup.com groups with the following topics: <i>"Bluemix", "IBM Bluemix", "IBM", "Cloud Foundry"</i></p>
         </div>
 
         <div class="divider"></div>
 
-        <div id="summary" class="row section" style="display: none;">
+        <div id="data-loading" class="row" style="display: none; margin-top: 40px">
+            <div class="progress">
+                <div class="indeterminate"></div>
 
-        </div>
-        <div class="divider"></div>
-        <h4>Where are these groups located?</h4>
-        <div id="groupLocationMap" style="width: 100%; max-height:700px;" class="row section">
-        </div>
-
-        <div class="divider"></div>
-
-        <div id="topAverageAttendanceDiv" class="row section">
-            <h4>Which of them are attended the most?</h4>
-            <p class="title">Top 10 Most Attended Meetups</p>
-            <table id="topAverageAttendanceTable" class="striped tablesorter">
-                <thead>
-                    <tr>
-                        <th>Group Name</th>
-                        <th>Average "Yes" RSVPs (Last 6 Months)</th>
-                        <th>Number Of Members</th>
-                        <th>Participation Rate</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
+            </div>
+            <p>Plase wait... Collecting all of this information from Meetup.com can take 20 seconds or more!</p>
         </div>
 
+        <div id="dataDisplayContainer" style="display: none;">
+            <div id="summary" class="row section" style="display: none;">
 
-        <div class="divider"></div>
-        <h4>When is the most popular day to schedule an event?</h4>
-        <div id="mostCommonDayChart" style="width: 100%; height:400px;" class="row section chart">
-        </div>
-
-        <div class="divider"></div>
-        <h4>How does the number of events held per month affect participation?</h4>
-        <div id="eventsPerMonthParticipation" class="row">
-            <div class="input-field col s6">
-                <select class="topicFilterSelect dynamicPop">
-                </select>
-                <label>Topic</label>
             </div>
-            <div class="input-field col s6">
-                <select class="countryFilterSelect dynamicPop">
-                </select>
-                <label>Country</label>
-            </div>
-            <div id="eventsPerMonthParticipationGraph" style="width: 100%; height:400px;" class="row section chart">
-            </div>
-        </div>
-
-        <div class="divider"></div>
-        <h4>When was each group created?</h4>
-        <div id="membersByCreationDate" class="row">
-            <div class="input-field col s6">
-                <select class="topicFilterSelect dynamicPop">
-                </select>
-                <label>Topic</label>
+            <div class="divider"></div>
+            <h4>Where are these groups located?</h4>
+            <div id="groupLocationMap" style="width: 100%; max-height:700px;" class="row section">
             </div>
 
-            <div class="input-field col s6">
-                <select class="countryFilterSelect dynamicPop">
-                </select>
-                <label>Country</label>
+            <div class="divider"></div>
+
+            <div id="topAverageAttendanceDiv" class="row section">
+                <h4>Which of them are attended the most?</h4>
+                <p class="title">Top 10 Most Attended Meetups</p>
+                <table id="topAverageAttendanceTable" class="striped tablesorter">
+                    <thead>
+                        <tr>
+                            <th>Group Name</th>
+                            <th>Average "Yes" RSVPs (Last 6 Months)</th>
+                            <th>Number Of Members</th>
+                            <th>Participation Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
             </div>
 
-            <div id="membersByCreationDateChart" style="width: 100%; height:400px;" class="col s12 section chart">
-            </div>
-        </div>
 
-        <div class="divider"></div>
-        <div class="row section">
-            <div class="col s12 m3">
-                <div class="row">
-                    <h5>Pull the latest info from Meetup.com.</h5>
+            <div class="divider"></div>
+            <h4>When is the most popular day to schedule an event?</h4>
+            <div id="mostCommonDayChart" style="width: 100%; height:400px;" class="row section chart">
+            </div>
+
+            <div class="divider"></div>
+            <h4>How does the number of events held per month affect participation?</h4>
+            <div id="eventsPerMonthParticipation" class="row">
+                <div class="input-field col s6">
+                    <select class="topicFilterSelect dynamicPop">
+                    </select>
+                    <label>Topic</label>
+                </div>
+                <div class="input-field col s6">
+                    <select class="countryFilterSelect dynamicPop">
+                    </select>
+                    <label>Country</label>
+                </div>
+                <div id="eventsPerMonthParticipationGraph" style="width: 100%; height:400px;" class="row section chart">
                 </div>
             </div>
-            <div class="col s12 m9 input-field">
-                <div class="row">
-                    <div class="col s12">
-                        <a id="submitButton" class="waves-effect waves-light btn center-align"><i class="material-icons left">loop</i>Update Data</a>
-                    </div>
-                    <div class="col s12">
-                        <p>The Meetupalyzer collects data on all groups and events related to the "Bluemix" topic.</p>
-                    </div>
+
+            <div class="divider"></div>
+            <h4>When was each group created?</h4>
+            <div id="membersByCreationDate" class="row">
+                <div class="input-field col s6">
+                    <select class="topicFilterSelect dynamicPop">
+                    </select>
+                    <label>Topic</label>
+                </div>
+
+                <div class="input-field col s6">
+                    <select class="countryFilterSelect dynamicPop">
+                    </select>
+                    <label>Country</label>
+                </div>
+
+                <div id="membersByCreationDateChart" style="width: 100%; height:400px;" class="col s12 section chart">
                 </div>
             </div>
+
         </div>
+
     </div>
 
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>

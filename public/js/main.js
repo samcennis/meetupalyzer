@@ -11,23 +11,33 @@ function ready() {
 
     $('select').material_select();
     var $submitButton = $("#submitButton");
+    var $topicsInput = $("#topics-input");
 
     function _error(error) {
         console.log("Error!");
     }
 
-    function updateMeetupData(topic) {
-        //getTopicId(topic);
-        $.post('/api/update_meetup_data', function (result) {
-            if (result.status == 200) {
+    function updateMeetupData(topics) {
+        $("#data-loading").show();
+        $("dataDisplayContainer").hide();
+
+        $.post('/api/update_meetup_data', {
+            topics: topics
+        }, function (result) {
+            if (result.topics.length > 0) {
                 console.log("UPDATED SUCCESSFULLY!!")
+                console.log("Did not find topic match for: " + result.invalid_topics);
+                console.log(result);
+                populatePageWithData(result);
+            } else {
+                console.log("No results. All topics searched for were invalid.");
             }
         }).fail(_error);
     }
 
     //Gets data from Meetup.com API, updates Mongo database, then updates JSON file for clients
     $submitButton.click(function () {
-        updateMeetupData("Bluemix");
+        updateMeetupData($topicsInput.val());
     });
 
     //Filter selection click handlers
@@ -84,201 +94,212 @@ function ready() {
 
 
     //load in meetup data from local JSON data files
-    $.getJSON("/meetup_data/groups.json", function (groupsJSON) {
+    function populatePageWithData(data) {
 
-        $.getJSON("/meetup_data/events.json", function (eventsJSON) {
+        var groupsJSON = data.groups;
+        var eventsJSON = data.events;
+        var topicsJSON = data.topics;
 
-            $.getJSON("/meetup_data/topics.json", function (topicsJSON) {
+        //$.getJSON("/meetup_data/groups.json", function (groupsJSON) {
 
-                //console.log("Groups: " + groupsJSON); // this will show the info it in firebug console
-                //console.log("Events: " + eventsJSON);
-                //console.log("Topics: " + topicsJSON);
+        //$.getJSON("/meetup_data/events.json", function (eventsJSON) {
 
-                $("#summary").append("<h3><b>" + groupsJSON.length + "</b> groups and <b>" + eventsJSON.length + "</b> events related to these topics analyzed.</h3>");
-                $("#summary").show();
+        //$.getJSON("/meetup_data/topics.json", function (topicsJSON) {
 
-                var creationDateData = [];
-                var eventsPerMonthData = [];
-                var mostCommonDayData = [{
-                    name: "Sunday"
-                    , y: 0
+        //console.log("Groups: " + groupsJSON); // this will show the info it in firebug console
+        //console.log("Events: " + eventsJSON);
+        //console.log("Topics: " + topicsJSON);
+
+        $("#summary").append("<h3><b>" + groupsJSON.length + "</b> groups and <b>" + eventsJSON.length + "</b> events related to these topics analyzed.</h3>");
+        $("#summary").show();
+
+        var creationDateData = [];
+        var eventsPerMonthData = [];
+        var mostCommonDayData = [{
+            name: "Sunday"
+            , y: 0
                 }, {
-                    name: "Monday"
-                    , y: 0
+            name: "Monday"
+            , y: 0
                 }, {
-                    name: "Tuesday"
-                    , y: 0
+            name: "Tuesday"
+            , y: 0
                 }, {
-                    name: "Wednesday"
-                    , y: 0
+            name: "Wednesday"
+            , y: 0
                 }, {
-                    name: "Thursday"
-                    , y: 0
+            name: "Thursday"
+            , y: 0
                 }, {
-                    name: "Friday"
-                    , y: 0
+            name: "Friday"
+            , y: 0
                 }, {
-                    name: "Saturday"
-                    , y: 0
+            name: "Saturday"
+            , y: 0
                 }];
-                var mapData = [];
-                var yesRSVPsArray = [];
+        var mapData = [];
+        var yesRSVPsArray = [];
 
-                //Set up data arrays for topic filters
-                var topicIds = topicIdsFromJSON(topicsJSON);
-                var countries = countriesFromJSON(groupsJSON);
+        //Set up data arrays for topic filters
+        var topicIds = topicIdsFromJSON(topicsJSON);
+        var countries = countriesFromJSON(groupsJSON);
 
-                //Populate filter selection elements
-                populateFilterSelectionElements(topicsJSON, countries);
+        //Populate filter selection elements
+        populateFilterSelectionElements(topicsJSON, countries);
 
-                //Intialize groups filters
-                groupFilter = initializeGroupFilter(topicIds, countries);
+        //Intialize groups filters
+        groupFilter = initializeGroupFilter(topicIds, countries);
 
+        //console.log(groupFilter);
+
+        for (var i = 0; i < groupsJSON.length; i++) {
+
+            //Add this group's data to the filters
+            addToGroupFilter(groupFilter, topicIds, countries, groupsJSON[i])
                 //console.log(groupFilter);
 
-                for (var i = 0; i < groupsJSON.length; i++) {
+            yesRSVPsArray.push(groupsJSON[i].avg_yes_rsvps_per_event_last_6_months);
 
-                    //Add this group's data to the filters
-                    addToGroupFilter(groupFilter, topicIds, countries, groupsJSON[i])
-                        //console.log(groupFilter);
+            //Only add data if we found data on events in the last 6 months
+            //TODO: Make this if statement compatible with filter (keep track of index?)
+            //if (groupsJSON[i].avg_events_per_month_last_6_months != 0 && groupsJSON[i].avg_participation_rate != 0) {
 
-                    yesRSVPsArray.push(groupsJSON[i].avg_yes_rsvps_per_event_last_6_months);
-
-                    //Only add data if we found data on events in the last 6 months
-                    //TODO: Make this if statement compatible with filter (keep track of index?)
-                    //if (groupsJSON[i].avg_events_per_month_last_6_months != 0 && groupsJSON[i].avg_participation_rate != 0) {
-
-                    eventsPerMonthData.push({
-                        "name": groupsJSON[i].name
-                        , "x": groupsJSON[i].avg_events_per_month_last_6_months
-                        , "y": groupsJSON[i].avg_participation_rate
-                        , "members": groupsJSON[i].members
-                        , "avg_yes_rsvps": groupsJSON[i].avg_yes_rsvps_per_event_last_6_months
-                        , "link": "http://www.meetup.com/" + groupsJSON[i].urlname
-                    });
-
-                    //}
-
-                    creationDateData.push({
-                        "name": groupsJSON[i].name
-                        , "x": groupsJSON[i].created
-                        , "y": groupsJSON[i].members
-                        , "link": "http://www.meetup.com/" + groupsJSON[i].urlname
-                        , "hideTooltip": false
-                    });
-
-
-                    mapData.push({
-                        "name": groupsJSON[i].name
-                        , "lat": groupsJSON[i].lat
-                        , "lon": groupsJSON[i].lon
-                        , "members": groupsJSON[i].members
-                        , "country": groupsJSON[i].localized_country_name
-                        , "link": "http://www.meetup.com/" + groupsJSON[i].urlname
-                    })
-
-                    for (var j = 0; j < groupsJSON[i].num_events_each_day_of_week.length; j++) {
-                        //Add the number of events this day of the week to the totals
-                        mostCommonDayData[j].y += groupsJSON[i].num_events_each_day_of_week[j];
-                    }
-
-                }
-
-                console.log(groupFilter);
-
-                var top10_attended = top10(yesRSVPsArray);
-
-                //Populate top attendance table
-                for (var j = 0; j < top10_attended.length; j++) {
-                    $('#topAverageAttendanceTable > tbody:last-child').append('<tr><td><a target="_blank" href="http://www.meetup.com/' + groupsJSON[top10_attended[j][0]].urlname + '">' + groupsJSON[top10_attended[j][0]].name + '</a></td><td>' + groupsJSON[top10_attended[j][0]].avg_yes_rsvps_per_event_last_6_months + '</td><td>' + groupsJSON[top10_attended[j][0]].members + '</td><td>' + (Math.round((groupsJSON[top10_attended[j][0]].avg_participation_rate * 100) * 100) / 100) + '%</td></tr>');
-
-                }
-
-                //Sort on second column and disable sorting on the first column
-                $("#topAverageAttendanceTable").tablesorter({
-                    sortList: [[1, 1]]
-                    , headers: {
-                        0: {
-                            sorter: false
-                        }
-                    }
-                });
-
-                createScatterPlot('#eventsPerMonthParticipationGraph', 'Average Number of Events Per Month vs. Participation Rate', 'Averages calculated from events held in the past 6 months.', 'Average Events Hosted By Meetup.com Group Per Month (Last 6 Months)', 'linear', 'Avg. Participation Rate', 'linear', function (_this) {
-                    return '<b>' + _this.point.name + '</b><br/>' + _this.point.x + ' event(s) per month<br/>Avg attendance: ' + _this.point.avg_yes_rsvps + ' people<br/>' + (Math.round((_this.point.y * 100) * 100) / 100) + '% participation (' + _this.point.members + ' total members)';
-                }, "Groups", eventsPerMonthData);
-
-                //Number of Members by Creation Date Graph
-                createScatterPlot('#membersByCreationDateChart', 'Number of Members by Creation Date', '', 'Meetup.com Group Creation Date', 'datetime', 'Member Count', 'linear', function (_this) {
-                    return '<b>' + _this.point.name + '</b><br/> Created ' + Highcharts.dateFormat('%b %e, %Y', new Date(_this.x)) + ' - ' + _this.y + ' members.'
-                }, "Groups", creationDateData);
-
-                //Most Common Day to Schedule Event
-                createColumnChart('#mostCommonDayChart', 'Event Day Popularity', '', 'Number of Events', 'linear', '{point.y} events', 'Popularity', mostCommonDayData);
-
-
-                //TODO: Make this a seperate function
-                $('#groupLocationMap').highcharts('Map', {
-
-
-                    title: {
-                        text: 'Meetup.com Group Locations'
-                    },
-
-                    mapNavigation: {
-                        enabled: true
-                        , enableMouseWheelZoom: false
-                    },
-
-                    tooltip: {
-                        headerFormat: ''
-                        , pointFormat: '<b>{point.name}</b><br>{point.country}<br>{point.members} members'
-                    },
-
-                    series: [{
-                        // Use the gb-all map with no data as a basemap
-                        mapData: Highcharts.maps['custom/world']
-                        , name: 'Basemap'
-                        , borderColor: '#A0A0A0'
-                        , nullColor: 'rgba(200, 200, 200, 0.3)'
-                        , showInLegend: false
-                }, {
-                        name: 'Separators'
-                        , type: 'mapline'
-                        , data: Highcharts.geojson(Highcharts.maps['custom/world'], 'mapline')
-                        , color: '#707070'
-                        , showInLegend: false
-                        , enableMouseTracking: false
-                }, {
-                        // Specify points using lat/lon
-                        type: 'mappoint'
-                        , name: 'Cities'
-                        , color: Highcharts.getOptions().colors[1]
-                        , data: mapData
-                        , point: {
-                            events: {
-                                click: function () {
-                                    var url = this.link;
-                                    window.open(url, '_blank');
-                                }
-                            }
-                        }
-                        , dataLabels: {
-                            enabled: false
-                        }
-                        , showInLegend: false
-
-                }]
-                    , credits: {
-                        enabled: false
-                    }
-                });
-
+            eventsPerMonthData.push({
+                "name": groupsJSON[i].name
+                , "x": groupsJSON[i].avg_events_per_month_last_6_months
+                , "y": groupsJSON[i].avg_participation_rate
+                , "members": groupsJSON[i].members
+                , "avg_yes_rsvps": groupsJSON[i].avg_yes_rsvps_per_event_last_6_months
+                , "link": "http://www.meetup.com/" + groupsJSON[i].urlname
             });
 
+            //}
+
+            creationDateData.push({
+                "name": groupsJSON[i].name
+                , "x": groupsJSON[i].created
+                , "y": groupsJSON[i].members
+                , "link": "http://www.meetup.com/" + groupsJSON[i].urlname
+                , "hideTooltip": false
+            });
+
+
+            mapData.push({
+                "name": groupsJSON[i].name
+                , "lat": groupsJSON[i].lat
+                , "lon": groupsJSON[i].lon
+                , "members": groupsJSON[i].members
+                , "country": groupsJSON[i].localized_country_name
+                , "link": "http://www.meetup.com/" + groupsJSON[i].urlname
+            })
+
+            for (var j = 0; j < groupsJSON[i].num_events_each_day_of_week.length; j++) {
+                //Add the number of events this day of the week to the totals
+                mostCommonDayData[j].y += groupsJSON[i].num_events_each_day_of_week[j];
+            }
+
+        }
+
+        console.log(groupFilter);
+
+        var top10_attended = top10(yesRSVPsArray);
+
+        //Populate top attendance table
+        for (var j = 0; j < top10_attended.length; j++) {
+            $('#topAverageAttendanceTable > tbody:last-child').append('<tr><td><a target="_blank" href="http://www.meetup.com/' + groupsJSON[top10_attended[j][0]].urlname + '">' + groupsJSON[top10_attended[j][0]].name + '</a></td><td>' + groupsJSON[top10_attended[j][0]].avg_yes_rsvps_per_event_last_6_months + '</td><td>' + groupsJSON[top10_attended[j][0]].members + '</td><td>' + (Math.round((groupsJSON[top10_attended[j][0]].avg_participation_rate * 100) * 100) / 100) + '%</td></tr>');
+
+        }
+
+        //Sort on second column and disable sorting on the first column
+        $("#topAverageAttendanceTable").tablesorter({
+            sortList: [[1, 1]]
+            , headers: {
+                0: {
+                    sorter: false
+                }
+            }
         });
 
-    });
+        createScatterPlot('#eventsPerMonthParticipationGraph', 'Average Number of Events Per Month vs. Participation Rate', 'Averages calculated from events held in the past 6 months.', 'Average Events Hosted By Meetup.com Group Per Month (Last 6 Months)', 'linear', 'Avg. Participation Rate', 'linear', function (_this) {
+            return '<b>' + _this.point.name + '</b><br/>' + _this.point.x + ' event(s) per month<br/>Avg attendance: ' + _this.point.avg_yes_rsvps + ' people<br/>' + (Math.round((_this.point.y * 100) * 100) / 100) + '% participation (' + _this.point.members + ' total members)';
+        }, "Groups", eventsPerMonthData);
+
+        //Number of Members by Creation Date Graph
+        createScatterPlot('#membersByCreationDateChart', 'Number of Members by Creation Date', '', 'Meetup.com Group Creation Date', 'datetime', 'Member Count', 'linear', function (_this) {
+            return '<b>' + _this.point.name + '</b><br/> Created ' + Highcharts.dateFormat('%b %e, %Y', new Date(_this.x)) + ' - ' + _this.y + ' members.'
+        }, "Groups", creationDateData);
+
+        //Most Common Day to Schedule Event
+        createColumnChart('#mostCommonDayChart', 'Event Day Popularity', '', 'Number of Events', 'linear', '{point.y} events', 'Popularity', mostCommonDayData);
+
+
+        //TODO: Make this a seperate function
+        $('#groupLocationMap').highcharts('Map', {
+
+
+            title: {
+                text: 'Meetup.com Group Locations'
+            },
+
+            mapNavigation: {
+                enabled: true
+                , enableMouseWheelZoom: false
+            },
+
+            tooltip: {
+                headerFormat: ''
+                , pointFormat: '<b>{point.name}</b><br>{point.country}<br>{point.members} members'
+            },
+
+            series: [{
+                // Use the gb-all map with no data as a basemap
+                mapData: Highcharts.maps['custom/world']
+                , name: 'Basemap'
+                , borderColor: '#A0A0A0'
+                , nullColor: 'rgba(200, 200, 200, 0.3)'
+                , showInLegend: false
+                }, {
+                name: 'Separators'
+                , type: 'mapline'
+                , data: Highcharts.geojson(Highcharts.maps['custom/world'], 'mapline')
+                , color: '#707070'
+                , showInLegend: false
+                , enableMouseTracking: false
+                }, {
+                // Specify points using lat/lon
+                type: 'mappoint'
+                , name: 'Cities'
+                , color: Highcharts.getOptions().colors[1]
+                , data: mapData
+                , point: {
+                    events: {
+                        click: function () {
+                            var url = this.link;
+                            window.open(url, '_blank');
+                        }
+                    }
+                }
+                , dataLabels: {
+                    enabled: false
+                }
+                , showInLegend: false
+
+                }]
+            , credits: {
+                enabled: false
+            }
+        });
+
+        //Hide loading bar and show graphs
+        $("#data-loading").hide();
+        $("#dataDisplayContainer").show();
+
+        //  });
+
+        //});
+
+        //});
+    }
 
     function createScatterPlot(div, title, subtitle, xAxisText, xAxisType, yAxisText, yAxisType, tooltipFormatterFunction, seriesName, data) {
 
