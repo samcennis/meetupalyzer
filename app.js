@@ -46,7 +46,7 @@ app.post('/api/update_meetup_data', function (req, res, next) {
 
     console.log("POST!");
 
-    var topics = req.body.topics.split(', ');
+    var topics = req.body.topics.trim().split(/\s*[,]\s*/);
     console.log(topics);
     //var topics = ["ibm", "ibm bluemix", "bluemix"]; //Find groups with the topic "bluemix"
     console.log("User inputed topics: " + topics);
@@ -290,6 +290,7 @@ function getGroupsByTopicIdsFromMeetupAPI(topic_id_list, cb) {
                     , offset: offset
                     , fields: "topics"
                     , radius: "global"
+                        /*, country: "US"*/
                 }
             }
             , groupsRequestCallback

@@ -12,6 +12,7 @@ function ready() {
     $('select').material_select();
     var $submitButton = $("#submitButton");
     var $topicsInput = $("#topics-input");
+    var $newSearchButton = $("#newSearchButton");
 
     function _error(error) {
         console.log("Error!");
@@ -19,25 +20,36 @@ function ready() {
 
     function updateMeetupData(topics) {
         $("#data-loading").show();
-        $("dataDisplayContainer").hide();
+        $("#dataDisplayContainer").hide();
 
-        $.post('/api/update_meetup_data', {
-            topics: topics
-        }, function (result) {
-            if (result.topics.length > 0) {
-                console.log("UPDATED SUCCESSFULLY!!")
-                console.log("Did not find topic match for: " + result.invalid_topics);
-                console.log(result);
-                populatePageWithData(result);
-            } else {
-                console.log("No results. All topics searched for were invalid.");
-            }
-        }).fail(_error);
+        if (!$submitButton.hasClass("disabled")) {
+            $submitButton.addClass("disabled");
+            $.post('/api/update_meetup_data', {
+                topics: topics
+            }, function (result) {
+                if (result.topics.length > 0) {
+                    console.log("UPDATED SUCCESSFULLY!!")
+                    console.log("Did not find topic match for: " + result.invalid_topics);
+                    console.log(result);
+                    populatePageWithData(result);
+                    $submitButton.removeClass("disabled");
+                } else {
+                    console.log("No results. All topics searched for were invalid.");
+                }
+            }).fail(_error);
+
+        }
     }
 
     //Gets data from Meetup.com API, updates Mongo database, then updates JSON file for clients
     $submitButton.click(function () {
         updateMeetupData($topicsInput.val());
+    });
+
+    $newSearchButton.click(function () {
+        $.scrollTo($("#searchContainer"), 300, {
+            axis: 'y'
+        });
     });
 
     //Filter selection click handlers
@@ -204,6 +216,8 @@ function ready() {
 
         var top10_attended = top10(yesRSVPsArray);
 
+        $("#dataDisplayContainer").show();
+
         //Populate top attendance table
         for (var j = 0; j < top10_attended.length; j++) {
             $('#topAverageAttendanceTable > tbody:last-child').append('<tr><td><a target="_blank" href="http://www.meetup.com/' + groupsJSON[top10_attended[j][0]].urlname + '">' + groupsJSON[top10_attended[j][0]].name + '</a></td><td>' + groupsJSON[top10_attended[j][0]].avg_yes_rsvps_per_event_last_6_months + '</td><td>' + groupsJSON[top10_attended[j][0]].members + '</td><td>' + (Math.round((groupsJSON[top10_attended[j][0]].avg_participation_rate * 100) * 100) / 100) + '%</td></tr>');
@@ -290,10 +304,13 @@ function ready() {
             }
         });
 
-        //Hide loading bar and show graphs
+        //Hide loading bar, show graphs, and scroll to them
         $("#data-loading").hide();
-        $("#dataDisplayContainer").show();
 
+
+        $.scrollTo($("#dataDisplayContainer"), 300, {
+            axis: 'y'
+        });
         //  });
 
         //});

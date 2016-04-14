@@ -2,6 +2,16 @@
  * This file provides css styles.
  */
 
+body {
+    display: flex;
+    min-height: 100vh;
+    flex-direction: column;
+}
+
+main {
+    flex: 1 0 auto;
+}
+
 .title {
     color: #333333;
     font-size: 18px;
@@ -14,18 +24,18 @@ th.header.headerSortUp:before {
     font-family: FontAwesome;
     content: "\f0dd";
     //background-color: #3399FF;
-     display: inline-block;
-   padding-right: 3px;
-   vertical-align: middle;
+    display: inline-block;
+    padding-right: 3px;
+    vertical-align: middle;
 }
 
 th.header.headerSortDown:before {
     font-family: FontAwesome;
     content: "\f0de";
     //background-color: #3399FF; 
-     display: inline-block;
-   padding-right: 3px;
-   vertical-align: middle;
+    display: inline-block;
+    padding-right: 3px;
+    vertical-align: middle;
 }
 
 th.header:before {
@@ -35,4 +45,3 @@ th.header:before {
     padding-right: 3px;
     vertical-align: middle;
 }
-
