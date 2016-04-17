@@ -10,6 +10,9 @@ function ready() {
 
 
     $('select').material_select();
+
+    $("#topAverageAttendanceTable").tablesorter();
+
     var $submitButton = $("#submitButton");
     var $topicsInput = $("#topics-input");
     var $newSearchButton = $("#newSearchButton");
@@ -122,6 +125,7 @@ function ready() {
         //console.log("Events: " + eventsJSON);
         //console.log("Topics: " + topicsJSON);
 
+        $("#summary").html("");
         $("#summary").append("<h3><b>" + groupsJSON.length + "</b> groups and <b>" + eventsJSON.length + "</b> events related to these topics analyzed.</h3>");
         $("#summary").show();
 
@@ -218,6 +222,7 @@ function ready() {
 
         $("#dataDisplayContainer").show();
 
+        $('#topAverageAttendanceTable > tbody').html("");
         //Populate top attendance table
         for (var j = 0; j < top10_attended.length; j++) {
             $('#topAverageAttendanceTable > tbody:last-child').append('<tr><td><a target="_blank" href="http://www.meetup.com/' + groupsJSON[top10_attended[j][0]].urlname + '">' + groupsJSON[top10_attended[j][0]].name + '</a></td><td>' + groupsJSON[top10_attended[j][0]].avg_yes_rsvps_per_event_last_6_months + '</td><td>' + groupsJSON[top10_attended[j][0]].members + '</td><td>' + (Math.round((groupsJSON[top10_attended[j][0]].avg_participation_rate * 100) * 100) / 100) + '%</td></tr>');
@@ -225,14 +230,10 @@ function ready() {
         }
 
         //Sort on second column and disable sorting on the first column
-        $("#topAverageAttendanceTable").tablesorter({
-            sortList: [[1, 1]]
-            , headers: {
-                0: {
-                    sorter: false
-                }
-            }
-        });
+        $("#topAverageAttendanceTable").trigger("update");
+        $("#topAverageAttendanceTable").trigger("sorton", [[1, 1]]);
+
+
 
         createScatterPlot('#eventsPerMonthParticipationGraph', 'Average Number of Events Per Month vs. Participation Rate', 'Averages calculated from events held in the past 6 months.', 'Average Events Hosted By Meetup.com Group Per Month (Last 6 Months)', 'linear', 'Avg. Participation Rate', 'linear', function (_this) {
             return '<b>' + _this.point.name + '</b><br/>' + _this.point.x + ' event(s) per month<br/>Avg attendance: ' + _this.point.avg_yes_rsvps + ' people<br/>' + (Math.round((_this.point.y * 100) * 100) / 100) + '% participation (' + _this.point.members + ' total members)';
@@ -439,7 +440,7 @@ function ready() {
         //topicNames.push("all");
 
         for (var i = 0; i < topicsJSON.length; i++) {
-            topicIds.push(topicsJSON[i].id);
+            topicIds.push(topicsJSON[i]._id);
         }
 
         return topicIds;
@@ -521,18 +522,21 @@ function ready() {
     }
 
     function populateFilterSelectionElements(topicsJSON, countries) {
+
         //Add topic filters to all graphs
         $(".topicFilterSelect.dynamicPop select").each(function () {
+            $(this).html("");
             $(this).append($("<option />").val(0).text("All topics"));
             for (var i = 0; i < topicsJSON.length; i++) {
                 var topic = topicsJSON[i];
-                $(this).append($("<option />").val(topic.id).text(topic.name));
+                $(this).append($("<option />").val(topic._id).text(topic.name));
             }
             $(this).val(0); //set all as default
         });
 
         //Add country filters to all graphs
         $(".countryFilterSelect.dynamicPop select").each(function () {
+            $(this).html("");
             $(this).append($("<option />").val(0).text("All countries"));
             for (var i = 0; i < countries.length; i++) {
                 var country = countries[i];

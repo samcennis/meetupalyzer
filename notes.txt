@@ -59,3 +59,55 @@ Rankings:
 
 Top groups by participation rate
 Top events by participation rate
+
+
+------------------------
+  /*
+                //Write topics to local JSON file
+                console.log("Writing topics.json local file...");
+                var topicJSONFile = __dirname + '/public/meetup_data/topics.json';
+                jsonfile.writeFile(topicJSONFile, topicListToSave, function (err) {
+                    if (err) {
+                        return console.log("Error writing topics.json local file: " + err);
+                    }
+                    console.log("Topics.json written successfully");
+
+                    //Write Groups to local JSON file
+                    console.log("Writing groups.json local file...");
+                    var groupJSONFile = __dirname + '/public/meetup_data/groups.json';
+                    jsonfile.writeFile(groupJSONFile, groupListToSave, function (err) {
+                        if (err) {
+                            return console.log("Error writing groups.json local file: " + err);
+                        }
+                        console.log("Groups.json written successfully.");
+
+                        //Write Events to local JSON file
+                        console.log("Writing events.json local file...");
+                        var eventJSONFile = __dirname + '/public/meetup_data/events.json';
+                        jsonfile.writeFile(eventJSONFile, eventListToSave, function (err) {
+                            if (err) {
+                                return console.log("Error writing events.json local file: " + err);
+                            }
+                            console.log("Events.json written successfully.");
+
+
+                            /*
+                            //Add Groups to the MongoDB database
+                            console.log("Adding groups to DB...");
+                            addAllGroupsToDB(groupListToSave, function (err) {
+                                if (err) {
+                                    return console.log("Error adding groups to DB: " + err.message);
+                                }
+                                console.log("Groups added successfully.");
+
+                                addAllEventsToDB(eventListToSave, function (err) {
+                                    if (err) {
+                                        return console.log("Error adding events to DB: " + err.message);
+                                    }
+                                    console.log("Events added successfully.");
+
+                                    addAllTopicsToDB(topicListToSave, function (err) {
+                                        if (err) {
+                                            return console.log("Error adding topics to DB: " + err.message);
+                                        }
+                                        console.log("Topics added successfully.");

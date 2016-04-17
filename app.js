@@ -51,10 +51,6 @@ app.post('/api/update_meetup_data', function (req, res, next) {
     //var topics = ["ibm", "ibm bluemix", "bluemix"]; //Find groups with the topic "bluemix"
     console.log("User inputed topics: " + topics);
 
-    //TODO: Check local json files for topics (or Redis?), then MongoDB database, only then contact Meetup.com 
-    //Speeds up search and less calls to Meetup
-    //jsonfile.
-
     getTopicIdsFromMeetupAPI(topics, function (topicList) {
 
         var topicIdList = createTopicIdList(topicList); //form list of just the valid topic ids
@@ -70,85 +66,83 @@ app.post('/api/update_meetup_data', function (req, res, next) {
                 , invalid_topics: invalidTopics
             });
         }
+        //If no request to update the cache, then load all groups and events from cached topics in the DB
+        if (!req.body.updateCache) {
 
-        getGroupsByTopicIdsFromMeetupAPI(topicIdList, function (groupList) {
-
-            var groupIdList = createGroupIdList(groupList); //form list of just the group ids
-
-            getEventsByGroupIdListFromMeetupAPI(groupIdList, function (eventList) {
-
-                //Make sure there are no duplicates in the events list
-                console.log("Events before deleting duplicates: " + eventList.length);
-                eventList = _.uniq(eventList, false, function (e) {
-                    return e.id
-                });
-                console.log("Events after deleting duplicates: " + eventList.length);
-
-                //Convert Meetup API JSON into local storage JSON format
-                var topicListToSave = topicList;
-                var groupListToSave = formatGroupList(groupList, topicIdList.join());
-                var eventListToSave = formatEventList(eventList);
-
-                //Calculate average events per month for each group
-                calculateEventMetricsForGroups(groupList, eventList);
-
-                //Write topics to local JSON file
-                console.log("Writing topics.json local file...");
-                var topicJSONFile = __dirname + '/public/meetup_data/topics.json';
-                jsonfile.writeFile(topicJSONFile, topicListToSave, function (err) {
-                    if (err) {
-                        return console.log("Error writing topics.json local file: " + err);
-                    }
-                    console.log("Topics.json written successfully");
-
-                    //Write Groups to local JSON file
-                    console.log("Writing groups.json local file...");
-                    var groupJSONFile = __dirname + '/public/meetup_data/groups.json';
-                    jsonfile.writeFile(groupJSONFile, groupListToSave, function (err) {
-                        if (err) {
-                            return console.log("Error writing groups.json local file: " + err);
-                        }
-                        console.log("Groups.json written successfully.");
-
-                        //Write Events to local JSON file
-                        console.log("Writing events.json local file...");
-                        var eventJSONFile = __dirname + '/public/meetup_data/events.json';
-                        jsonfile.writeFile(eventJSONFile, eventListToSave, function (err) {
-                            if (err) {
-                                return console.log("Error writing events.json local file: " + err);
-                            }
-                            console.log("Events.json written successfully.");
-
-                            //Add Groups to the MongoDB database
-                            console.log("Adding groups to DB...");
-                            addAllGroupsToDB(groupListToSave, function (err) {
-                                if (err) {
-                                    return console.log("Error adding groups to DB: " + err.message);
-                                }
-                                console.log("Groups added successfully.");
-
-                                addAllEventsToDB(eventListToSave, function (err) {
-                                    if (err) {
-                                        return console.log("Error adding events to DB: " + err.message);
-                                    }
-                                    console.log("Events added successfully.");
-
-                                    //Now return lists to the client!!
-                                    res.json({
-                                        topics: topicListToSave
-                                        , groups: groupListToSave
-                                        , events: eventListToSave
-                                        , invalid_topics: invalidTopics
-                                    });
-                                });
-                            });
-                        });
+            findGroupsAndEventsByTopicInDB(topicList, function (notFoundTopics, topicsFromDB, groupsFromDB, eventsFromDB) {
+                if (notFoundTopics.length > 0) {
+                    //Only get the data from Meetup API for topic ids not found in the DB
+                    getGroupsAndEventsFromMeetupAPI(notFoundTopics, topicsFromDB, groupsFromDB, eventsFromDB, invalidTopics, function (response) {
+                        res.json(response);
                     });
-                });
+                } else {
+                    return res.json({
+                        topics: topicsFromDB
+                        , groups: groupsFromDB
+                        , events: eventsFromDB
+                        , invalid_topics: invalidTopics
+                    });
+                }
+
+            });
+        } else {
+            //Do not use DB cache. Get ALL fresh data for all topic ids from the Meetup API
+            getGroupsAndEventsFromMeetupAPI(topicList, [], [], [], invalid_topics, function (response) {
+
+                res.json(response);
+
+            });
+        }
+    });
+});
+
+//Get groups and events based on a topic list. Also pass in topics, groups, and events we already found in the MongoDB
+//As well as any invalid_topics that were searched for
+function getGroupsAndEventsFromMeetupAPI(topicList, topicsFromDB, groupsFromDB, eventsFromDB, invalid_topics, callback) {
+
+    var topicIdList = createTopicIdList(topicList);
+
+    console.log("Calling get groups from meetup api for these topics: " + _.pluck(topicList, "name"));
+
+    getGroupsByTopicIdsFromMeetupAPI(topicIdList, function (groupList) {
+
+        var groupIdList = createGroupIdList(groupList); //form list of just the group ids
+
+        getEventsByGroupIdListFromMeetupAPI(groupIdList, function (eventList) {
+
+            //Make sure there are no duplicates in the events list
+            console.log("Events before deleting duplicates: " + eventList.length);
+            eventList = _.uniq(eventList, false, function (e) {
+                return e.id
+            });
+            console.log("Events after deleting duplicates: " + eventList.length);
+
+            //Convert Meetup API JSON into local storage JSON format
+            var topicListToSave = formatTopicList(topicList);
+            var groupListToSave = formatGroupList(groupList);
+            var eventListToSave = formatEventList(eventList);
+
+            //Calculate average events per month for each group
+            calculateEventMetricsForGroups(groupListToSave, eventListToSave);
+
+            //Merge any topics, groups, and events we already had in our DB to the results from meetup API
+            topicListToSave = _.union(topicListToSave, topicsFromDB);
+            groupListToSave = _.union(groupListToSave, groupsFromDB);
+            eventListToSave = _.union(eventListToSave, eventsFromDB);
+
+            console.log("Total api and db combined results: " + topicListToSave.length + " topics, " + groupListToSave.length + " groups, " + eventListToSave.length + " events. ");
+
+            //Now return lists to the client!!
+            callback({
+                topics: topicListToSave
+                , groups: groupListToSave
+                , events: eventListToSave
+                , invalid_topics: invalid_topics
             });
         });
     });
-});
+};
+
 
 
 //Using Meetup API, finds "Topic ID"s based on items in the topic list "Topic" and passes it to a callback function
@@ -416,6 +410,9 @@ var Event = db.model('events', EventSchema);
 var GroupSchema = require('./models/Group.js').GroupSchema;
 var Group = db.model('groups', GroupSchema);
 
+var TopicSchema = require('./models/Topic.js').TopicSchema;
+var Topic = db.model('topics', TopicSchema);
+
 function addAllEventsToDB(eventList, cb) {
     Event.collection.drop();
     Event.collection.insert(eventList, function (err, docs) {
@@ -442,23 +439,92 @@ function addAllGroupsToDB(groupList, cb) {
             return cb();
         }
     });
-
-    /* var bulk = Group.collection.initializeOrderedBulkOp();
-     for (var i = 0; i < groupList.length; i++){
-         bulk.find({ _id : groupList[i]._id}).upsert().updateOne(groupList[i]);
-     }
-     
-     bulk.execute(function(err, results){
-         if (err) { console.log("error: " + err.message)};
-         console.log(results.nInserted + " docs inserted and " + results.nModified + " modified.")
-     });*/
-
 };
 
-var formatGroupList = function (list, topic_id_list_string) {
+function addAllTopicsToDB(topicList, cb) {
 
-    var topic_id_list = topic_id_list_string.split(",").map(Number);
-    //console.log(topic_id_list);
+    //update the database!
+    Topic.collection.drop(); //delete old groups 
+    Topic.collection.insert(topicList, function (err, docs) {
+        if (err) {
+            return cb({
+                message: "Error adding topics to DB"
+            });
+        } else {
+            return cb();
+        }
+    });
+};
+
+function findGroupsAndEventsByTopicInDB(topicList, cb) {
+    //returns cb( reducedTopicList, groupList, eventList),
+    //where reducedTopicList consists of topics that WEREN'T found
+    //var topic_ids = topicIdList.map(Number);
+
+    var topicList = formatTopicList(topicList);
+
+    var topicIdList = createTopicIdList(topicList);
+
+    //console.log("*********" + topicIdList);
+
+    Topic.collection.find({
+        _id: {
+            $in: topicIdList
+        }
+    }).toArray(function (err, foundTopics) {
+        if (err) {
+            console.log(err);
+        } else {
+            var foundTopicIds = _.pluck(foundTopics, "_id");
+
+            //console.log("doing a difference of these 2 list: " + topicIdList + " *** " + foundTopicIds);
+
+            var notFoundTopicIds = _.difference(topicIdList, foundTopicIds);
+            var notFoundTopics = getTopicsByIds(topicList, notFoundTopicIds);
+
+            console.log("Found these topics already in DB: " + _.pluck(foundTopics, "name"));
+            console.log("Did NOT find these topics already in DB: " + _.pluck(notFoundTopics, "name"));
+            //console.log("Did NOT find these topic ids already in DB: " + notFoundTopicIds);
+
+
+            Group.collection.find({
+                topics: {
+                    $elemMatch: {
+                        id: {
+                            $in: foundTopicIds
+                        }
+                    }
+                }
+            }).toArray(function (err, foundGroups) {
+                if (err) {
+                    console.log(err);
+                } else {
+                    //console.log(result);
+                    console.log("Found " + foundGroups.length + " groups already in DB.");
+
+                    var foundGroupIds = _.pluck(foundGroups, "_id");
+
+                    Event.collection.find({
+                        group_id: {
+                            $in: foundGroupIds
+                        }
+                    }).toArray(function (err, foundEvents) {
+                        if (err) {
+                            console.log(err);
+                        } else {
+                            //console.log(result);
+                            console.log("Found " + foundEvents.length + " events already in DB.");
+                            return cb(notFoundTopics, foundTopics, foundGroups, foundEvents);
+                        }
+                    });
+
+                }
+            });
+        }
+    });
+}
+
+var formatGroupList = function (list) {
 
     for (var i = 0; i < list.length; i++) {
         //Delete unneccessary properties
@@ -479,15 +545,12 @@ var formatGroupList = function (list, topic_id_list_string) {
 
         var reducedTopicIdList = [];
         if (list[i].topics) {
-            //Only add "topic" to the group object if its a topic the user searched for
+            //Add all topics
             for (var j = 0; j < list[i].topics.length; j++) {
-                //console.log(list[i].topics[j].id);
-                if (topic_id_list.indexOf(list[i].topics[j].id) != -1) {
-                    reducedTopicIdList.push({
-                        id: list[i].topics[j].id
-                        , name: list[i].topics[j].name
-                    });
-                }
+                reducedTopicIdList.push({
+                    id: list[i].topics[j].id
+                    , name: list[i].topics[j].name
+                });
             }
         }
         list[i].topics = reducedTopicIdList;
@@ -551,6 +614,16 @@ var formatEventList = function (list) {
     return list;
 }
 
+var formatTopicList = function (list) {
+    for (var i = 0; i < list.length; i++) {
+        if (list[i].id) {
+            list[i]._id = parseInt(list[i].id);
+            delete list[i].id;
+        }
+    }
+    return list;
+}
+
 var createGroupIdList = function (groupList) {
     var groupIdList = [];
 
@@ -565,7 +638,9 @@ var createTopicIdList = function (topicList) {
     var topicIdList = [];
 
     for (var i = 0; i < topicList.length; i++) {
-        if (topicList[i].id != -1) topicIdList.push(topicList[i].id);
+        //works for both "id" and "_id" format
+        if (topicList[i].id && topicList[i].id != -1) topicIdList.push(parseInt(topicList[i].id));
+        else if (topicList[i]._id && topicList[i]._id != -1) topicIdList.push(parseInt(topicList[i]._id));
     }
 
     return topicIdList;
@@ -579,6 +654,23 @@ var createInvalidTopicsList = function (topicList) {
     }
 
     return invalidTopicList;
+}
+
+//Returns a list of topics that are in the topic IDs list
+var getTopicsByIds = function (topicList, topicIdsList) {
+
+    var ret = [];
+
+    console.dir(topicList);
+    //console.log("%%%%%" + topicIdsList);
+
+    for (var i = 0; i < topicList.length; i++) {
+        //console.log("This topics id:" + topicList[i]._id);
+        if (topicIdsList.indexOf(topicList[i]._id) != -1) ret.push(topicList[i]);
+    }
+
+    return ret;
+
 }
 
 
