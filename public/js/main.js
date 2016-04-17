@@ -27,8 +27,10 @@ function ready() {
 
         if (!$submitButton.hasClass("disabled")) {
             $submitButton.addClass("disabled");
-            $.post('/api/update_meetup_data', {
+            $.post('/api/get_meetup_data', {
                 topics: topics
+                    /*, saveToDB: true
+                    , useDBCache: false*/
             }, function (result) {
                 if (result.topics.length > 0) {
                     console.log("UPDATED SUCCESSFULLY!!")
@@ -135,6 +137,53 @@ function ready() {
 
         var creationDateData = [];
         var eventsPerMonthData = [];
+        var headsUpTimeData = [];
+        var mostCommonTimeData = [{
+            name: "8am"
+            , y: 0
+                }, {
+            name: "9am"
+            , y: 0
+                }, {
+            name: "10am"
+            , y: 0
+                }, {
+            name: "11am"
+            , y: 0
+                }, {
+            name: "Noon"
+            , y: 0
+                }, {
+            name: "1pm"
+            , y: 0
+                }, {
+            name: "2pm"
+            , y: 0
+                }, {
+            name: "3pm"
+            , y: 0
+                }, {
+            name: "4pm"
+            , y: 0
+                }, {
+            name: "5pm"
+            , y: 0
+                }, {
+            name: "6pm"
+            , y: 0
+                }, {
+            name: "7pm"
+            , y: 0
+                }, {
+            name: "8pm"
+            , y: 0
+                }, {
+            name: "9pm"
+            , y: 0
+                }, {
+            name: "10pm"
+            , y: 0
+                }];
         var mostCommonDayData = [{
             name: "Sunday"
             , y: 0
@@ -157,6 +206,96 @@ function ready() {
             name: "Saturday"
             , y: 0
                 }];
+        var relativeAttendanceTimeData = [{
+            name: "8am"
+            , y: 0
+            , count: 0
+                }, {
+            name: "9am"
+            , y: 0
+            , count: 0
+                }, {
+            name: "10am"
+            , y: 0
+            , count: 0
+                }, {
+            name: "11am"
+            , y: 0
+            , count: 0
+                }, {
+            name: "Noon"
+            , y: 0
+            , count: 0
+                }, {
+            name: "1pm"
+            , y: 0
+            , count: 0
+                }, {
+            name: "2pm"
+            , y: 0
+            , count: 0
+                }, {
+            name: "3pm"
+            , y: 0
+            , count: 0
+                }, {
+            name: "4pm"
+            , y: 0
+            , count: 0
+                }, {
+            name: "5pm"
+            , y: 0
+            , count: 0
+                }, {
+            name: "6pm"
+            , y: 0
+            , count: 0
+                }, {
+            name: "7pm"
+            , y: 0
+            , count: 0
+                }, {
+            name: "8pm"
+            , y: 0
+            , count: 0
+                }, {
+            name: "9pm"
+            , y: 0
+            , count: 0
+                }, {
+            name: "10pm"
+            , y: 0
+            , count: 0
+                }];
+        var relativeAttendanceDayData = [{
+            name: "Sunday"
+            , y: 0
+            , count: 0
+                }, {
+            name: "Monday"
+            , y: 0
+            , count: 0
+                }, {
+            name: "Tuesday"
+            , y: 0
+            , count: 0
+                }, {
+            name: "Wednesday"
+            , y: 0
+            , count: 0
+                }, {
+            name: "Thursday"
+            , y: 0
+            , count: 0
+                }, {
+            name: "Friday"
+            , y: 0
+            , count: 0
+                }, {
+            name: "Saturday"
+            , y: 0
+            , count: 0
+                }];
         var mapData = [];
         var yesRSVPsArray = [];
 
@@ -172,6 +311,7 @@ function ready() {
 
         //console.log(groupFilter);
 
+        //Groups data
         for (var i = 0; i < groupsJSON.length; i++) {
 
             //Add this group's data to the filters
@@ -213,11 +353,56 @@ function ready() {
                 , "link": "http://www.meetup.com/" + groupsJSON[i].urlname
             })
 
+            for (var j = 0; j < groupsJSON[i].num_events_each_hour_weekdays_from_8AM.length; j++) {
+                //Add the number of events at this time to the totals
+                mostCommonTimeData[j].y += groupsJSON[i].num_events_each_hour_weekdays_from_8AM[j];
+            }
+
             for (var j = 0; j < groupsJSON[i].num_events_each_day_of_week.length; j++) {
                 //Add the number of events this day of the week to the totals
                 mostCommonDayData[j].y += groupsJSON[i].num_events_each_day_of_week[j];
             }
 
+            for (var j = 0; j < groupsJSON[i].percentage_attendance_each_hour_from_8AM_rel_to_group_avg.length; j++) {
+                //Add the percentages up and keep track of count (for future average)
+                if (groupsJSON[i].percentage_attendance_each_hour_from_8AM_rel_to_group_avg[j] != null) {
+                    relativeAttendanceTimeData[j].y += groupsJSON[i].percentage_attendance_each_hour_from_8AM_rel_to_group_avg[j];
+                    relativeAttendanceTimeData[j].count++;
+                }
+            }
+
+
+            for (var j = 0; j < groupsJSON[i].percentage_attendance_each_day_of_week_rel_to_group_avg.length; j++) {
+                //Add the percentages up and keep track of count (for future average)
+                if (groupsJSON[i].percentage_attendance_each_day_of_week_rel_to_group_avg[j] != null) {
+                    relativeAttendanceDayData[j].y += groupsJSON[i].percentage_attendance_each_day_of_week_rel_to_group_avg[j];
+                    relativeAttendanceDayData[j].count++;
+                }
+            }
+
+        }
+
+
+        //Calculate average percentage for each time (divide y by the count)
+        for (var i = 0; i < relativeAttendanceTimeData.length; i++) {
+            relativeAttendanceTimeData[i].y = Math.round((relativeAttendanceTimeData[i].y / relativeAttendanceTimeData[i].count) * 100);
+        }
+
+        //Calculate average percentage for each day (divide y by the count)
+        for (var i = 0; i < relativeAttendanceDayData.length; i++) {
+            relativeAttendanceDayData[i].y = Math.round((relativeAttendanceDayData[i].y / relativeAttendanceDayData[i].count) * 100);
+        }
+
+        //Events data
+        for (var i = 0; i < eventsJSON.length; i++) {
+            if (eventsJSON[i].yes_rsvp_count > 2 && eventsJSON[i].heads_up_time) { //have minimum attendance threshold
+                headsUpTimeData.push({
+                    "name": eventsJSON[i].name
+                    , "x": eventsJSON[i].heads_up_time
+                    , "y": eventsJSON[i].yes_rsvp_count
+                    , "link": eventsJSON[i].event_url
+                });
+            }
         }
 
         console.log(groupFilter);
@@ -249,8 +434,21 @@ function ready() {
             return '<b>' + _this.point.name + '</b><br/> Created ' + Highcharts.dateFormat('%b %e, %Y', new Date(_this.x)) + ' - ' + _this.y + ' members.'
         }, "Groups", creationDateData);
 
+        createScatterPlot("#headsUpTimeChart", 'Event "Heads Up Time" and Attendance', '', 'Days Between Announcement Day and Event', 'linear', 'Attendance', 'linear', function (_this) {
+            return '<b>' + _this.point.name + '</b><br/>' + _this.point.x + ' days of "heads up time"<br>' + _this.y + ' Yes RSVPs.'
+        }, "Events", headsUpTimeData);
+
+        //Most Common Time to Schedule Event
+        createColumnChart('#mostCommonTimeChart', 'Event Time Popularity', 'Time of events on weekdays (M - F)', 'Number of Events', 'linear', '{point.y} events', '{point.y} events', 'Popularity', mostCommonTimeData);
+
         //Most Common Day to Schedule Event
-        createColumnChart('#mostCommonDayChart', 'Event Day Popularity', '', 'Number of Events', 'linear', '{point.y} events', 'Popularity', mostCommonDayData);
+        createColumnChart('#mostCommonDayChart', 'Event Day Popularity', '', 'Number of Events', 'linear', '{point.y} events', '{point.y} events', 'Popularity', mostCommonDayData);
+
+        //Relative attendance each time
+        createColumnChart('#relativeAttendanceTimeChart', "Average Percentage Above/Below Groups' Average Attendance", "Calculated by dividing a group's average attendance at each time by the group's average overall attendance. This graph displays an average of this metric over all groups.", 'Avg % Above/Below Average Attendance', 'linear', '<b>{point.y}% relative to average attendance</b><br>{point.count} groups have scheduled events at {point.name}', '{point.y}%', '% Above/Below Average', relativeAttendanceTimeData);
+
+        //Relative attendance each day of the week
+        createColumnChart('#relativeAttendanceDayChart', "Average Percentage Above/Below Groups' Average Attendance", "Calculated by dividing a group's average attendance each day of the week by the group's average overall attendance. This graph displays an average of this metric over all groups.", 'Avg % Above/Below Average Attendance', 'linear', '<b>{point.y}% relative to average attendance</b><br>{point.count} groups have scheduled events on {point.name}s', '{point.y}%', '% Above/Below Average', relativeAttendanceDayData);
 
 
         //TODO: Make this a seperate function
@@ -393,7 +591,7 @@ function ready() {
         });
     }
 
-    function createColumnChart(div, title, subtitle, yAxisText, yAxisType, format, seriesName, data) {
+    function createColumnChart(div, title, subtitle, yAxisText, yAxisType, tooltip, format, seriesName, data) {
 
         $(div).highcharts({
             chart: {
@@ -401,6 +599,10 @@ function ready() {
             }
             , title: {
                 text: title
+            }
+            , tooltip: {
+                headerFormat: ''
+                , pointFormat: tooltip
             }
             , subtitle: {
                 text: subtitle

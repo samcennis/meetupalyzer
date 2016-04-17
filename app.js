@@ -41,8 +41,8 @@ app.get('/', function (req, res) {
 });
 
 
-//Called from the client in order to pull data from Meetup, add it to the DB, and create a local JSON file
-app.post('/api/update_meetup_data', function (req, res, next) {
+//Called from the client in order to pull data from the DB/Meetup API
+app.post('/api/get_meetup_data', function (req, res, next) {
 
     console.log("POST!");
 
@@ -67,11 +67,11 @@ app.post('/api/update_meetup_data', function (req, res, next) {
             });
         }
         //If no request to update the cache, then load all groups and events from cached topics in the DB
-        if (!req.body.updateCache) {
+        if (!req.body.useDBCache) {
 
             findGroupsAndEventsByTopicInDB(topicList, function (notFoundTopics, topicsFromDB, groupsFromDB, eventsFromDB) {
                 if (notFoundTopics.length > 0) {
-                    //Only get the data from Meetup API for topic ids not found in the DB
+                    //Only get the data from Meetup API if there were topic ids that were not found in the DB
                     getGroupsAndEventsFromMeetupAPI(notFoundTopics, topicsFromDB, groupsFromDB, eventsFromDB, invalidTopics, function (response) {
                         res.json(response);
                     });
@@ -86,11 +86,41 @@ app.post('/api/update_meetup_data', function (req, res, next) {
 
             });
         } else {
-            //Do not use DB cache. Get ALL fresh data for all topic ids from the Meetup API
-            getGroupsAndEventsFromMeetupAPI(topicList, [], [], [], invalid_topics, function (response) {
+            console.log("Requested not to use the database cache. Pulling all data from Meetup.com");
+            getGroupsAndEventsFromMeetupAPI(topicList, [], [], [], invalidTopics, function (response) {
 
-                res.json(response);
+                if (req.body.saveToDB) {
 
+                    console.log("Requested to save the data in the database.");
+
+                    //Add Groups to the MongoDB database
+                    console.log("Adding groups to DB...");
+                    addAllGroupsToDB(response.groups, function (err) {
+                        if (err) {
+                            return console.log("Error adding groups to DB: " + err.message);
+                        }
+                        console.log("Groups added successfully.");
+
+                        addAllEventsToDB(response.events, function (err) {
+                            if (err) {
+                                return console.log("Error adding events to DB: " + err.message);
+                            }
+                            console.log("Events added successfully.");
+
+                            addAllTopicsToDB(response.topics, function (err) {
+                                if (err) {
+                                    return console.log("Error adding topics to DB: " + err.message);
+                                }
+                                console.log("Topics added successfully.");
+
+                                res.json(response);
+
+                            });
+                        });
+                    });
+                } else {
+                    res.json(response);
+                }
             });
         }
     });
@@ -123,7 +153,8 @@ function getGroupsAndEventsFromMeetupAPI(topicList, topicsFromDB, groupsFromDB, 
             var eventListToSave = formatEventList(eventList);
 
             //Calculate average events per month for each group
-            calculateEventMetricsForGroups(groupListToSave, eventListToSave);
+            calculateGroupMetrics(groupListToSave, eventListToSave);
+            calculateEventMetrics(eventListToSave);
 
             //Merge any topics, groups, and events we already had in our DB to the results from meetup API
             topicListToSave = _.union(topicListToSave, topicsFromDB);
@@ -674,7 +705,7 @@ var getTopicsByIds = function (topicList, topicIdsList) {
 }
 
 
-function calculateEventMetricsForGroups(groupList, eventList) {
+function calculateGroupMetrics(groupList, eventList) {
     var currentDate = new Date();
     var currentMonth = currentDate.getUTCMonth();
     var currentYear = currentDate.getUTCFullYear();
@@ -695,6 +726,9 @@ function calculateEventMetricsForGroups(groupList, eventList) {
         var yesRSVPsLast6Months = [];
         var eventsEachDayOfWeek = [0, 0, 0, 0, 0, 0, 0];
         var yesRSVPsEachDayOfWeek = [[], [], [], [], [], [], []];
+
+        var eventsEachHourWeekDays = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]; //length 15 (starting at 8am)
+        var yesRSVPsEachHourWeekDays = [[], [], [], [], [], [], [], [], [], [], [], [], [], [], []];
 
 
         for (j = 0; j < eventList.length; j++) {
@@ -737,9 +771,26 @@ function calculateEventMetricsForGroups(groupList, eventList) {
                 //Calculate events by day of the week
                 var eventDate = new Date(eventDateMS);
                 //Increment appropriate day of the week the event is scheduled on
-                eventsEachDayOfWeek[eventDate.getUTCDay()]++;
-                //Add the number of attendees to 
-                yesRSVPsEachDayOfWeek[eventDate.getUTCDay()].push(eventList[j].yes_rsvp_count);
+
+                var eventDay = eventDate.getUTCDay();
+                eventsEachDayOfWeek[eventDay]++;
+                //Add the number of attendees to the day of the week
+                yesRSVPsEachDayOfWeek[eventDay].push(eventList[j].yes_rsvp_count);
+
+                if (eventDay >= 1 && eventDay <= 5) { //check if its a weekday
+
+                    var eventHour = eventDate.getUTCHours();
+
+                    var hourIndex = eventHour - 8; //hours stored in array with index zero being 8am
+
+                    if (hourIndex < 15 && hourIndex >= 0) { //make sure hour is between 8am and 10pm
+
+                        eventsEachHourWeekDays[hourIndex]++;
+                        yesRSVPsEachHourWeekDays[hourIndex].push(eventList[j].yes_rsvp_count);
+                    }
+
+
+                }
             }
         }
 
@@ -756,7 +807,36 @@ function calculateEventMetricsForGroups(groupList, eventList) {
             if (yesRSVPsEachDayOfWeek[j].length != 0) {
                 averageYesRSVPsEachDayOfWeek[j] = Math.round((yesRSVPsEachDayOfWeek[j].reduce(add, 0) / yesRSVPsEachDayOfWeek[j].length) * 100) / 100;
             }
-            //If there were no events that day, the average yes RSVPs for that day remains -1
+            //If there were no events that day, the average yes RSVPs for that day remains null
+        }
+
+        var attendanceEachDayOfWeekRelativeToGroupAverage = [null, null, null, null, null, null, null];
+        //Calculate daily attendance relative to the group's average (% above or below average)
+        for (var j = 0; j < averageYesRSVPsEachDayOfWeek.length; j++) {
+            //Check that there were events on that day of the week, then assign an average
+            if (averageYesRSVPsEachDayOfWeek[j] != null) {
+                attendanceEachDayOfWeekRelativeToGroupAverage[j] = Math.round(((averageYesRSVPsEachDayOfWeek[j] - averageYesRSVPsPerEventLast6Months) / averageYesRSVPsPerEventLast6Months) * 100) / 100;
+            }
+            //If there were no events that day, the attendance relative to group's average remains null
+        }
+
+        var averageYesRSVPsEachHourWeekDays = [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null];
+        for (var j = 0; j < yesRSVPsEachHourWeekDays.length; j++) {
+            //Check that there were events at that hour, then assign an average
+            if (yesRSVPsEachHourWeekDays[j].length != 0) {
+                averageYesRSVPsEachHourWeekDays[j] = Math.round((yesRSVPsEachHourWeekDays[j].reduce(add, 0) / yesRSVPsEachHourWeekDays[j].length) * 100) / 100;
+            }
+            //If there were no events at that hour, the average yes RSVPs for that hour remains null
+        }
+
+        var attendanceEachHourWeekDaysRelativeToGroupAverage = [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null];
+        //Calculate attendance at each time relative to the group's average (% above or below average)
+        for (var j = 0; j < averageYesRSVPsEachHourWeekDays.length; j++) {
+            //Check that there were events on that day of the week, then assign an average
+            if (averageYesRSVPsEachHourWeekDays[j] != null) {
+                attendanceEachHourWeekDaysRelativeToGroupAverage[j] = Math.round(((averageYesRSVPsEachHourWeekDays[j] - averageYesRSVPsPerEventLast6Months) / averageYesRSVPsPerEventLast6Months) * 100) / 100;
+            }
+            //If there were no events that day, the attendance relative to group's average remains null
         }
 
         groupList[i].avg_yes_rsvps_per_event_last_6_months = averageYesRSVPsPerEventLast6Months;
@@ -766,8 +846,24 @@ function calculateEventMetricsForGroups(groupList, eventList) {
 
         groupList[i].num_events_each_day_of_week = eventsEachDayOfWeek;
         groupList[i].avg_yes_rsvps_per_event_each_day_of_week = averageYesRSVPsEachDayOfWeek;
+        groupList[i].percentage_attendance_each_day_of_week_rel_to_group_avg = attendanceEachDayOfWeekRelativeToGroupAverage;
 
+        groupList[i].num_events_each_hour_weekdays_from_8AM = eventsEachHourWeekDays;
+        groupList[i].avg_yes_rsvps_per_event_weekdays_by_hour_from_8AM = averageYesRSVPsEachHourWeekDays;
+        groupList[i].percentage_attendance_each_hour_from_8AM_rel_to_group_avg = attendanceEachHourWeekDaysRelativeToGroupAverage;
     }
+}
+
+function calculateEventMetrics(eventList) {
+
+    for (var i = 0; i < eventList.length; i++) {
+
+        //Calculate the amount of "heads up time" that was given about the event in days
+        var headsUpTime = Math.floor((eventList[i].time - eventList[i].created) / 1000 / 60 / 60 / 24);
+
+        eventList[i].heads_up_time = headsUpTime;
+    }
+
 }
 
 //Utility add function to help calculate sums of arrays
