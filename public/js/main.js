@@ -126,6 +126,10 @@ function ready() {
         //console.log("Topics: " + topicsJSON);
 
         $("#summary").html("");
+
+        for (var i = 0; i < topicsJSON.length; i++) {
+            $("#summary").append('<div class="chip">' + topicsJSON[i].name + '</div>');
+        }
         $("#summary").append("<h3><b>" + groupsJSON.length + "</b> groups and <b>" + eventsJSON.length + "</b> events related to these topics analyzed.</h3>");
         $("#summary").show();
 
@@ -221,6 +225,7 @@ function ready() {
         var top10_attended = top10(yesRSVPsArray);
 
         $("#dataDisplayContainer").show();
+        $("#data-loading").hide();
 
         $('#topAverageAttendanceTable > tbody').html("");
         //Populate top attendance table
@@ -228,12 +233,12 @@ function ready() {
             $('#topAverageAttendanceTable > tbody:last-child').append('<tr><td><a target="_blank" href="http://www.meetup.com/' + groupsJSON[top10_attended[j][0]].urlname + '">' + groupsJSON[top10_attended[j][0]].name + '</a></td><td>' + groupsJSON[top10_attended[j][0]].avg_yes_rsvps_per_event_last_6_months + '</td><td>' + groupsJSON[top10_attended[j][0]].members + '</td><td>' + (Math.round((groupsJSON[top10_attended[j][0]].avg_participation_rate * 100) * 100) / 100) + '%</td></tr>');
 
         }
-
-        //Sort on second column and disable sorting on the first column
-        $("#topAverageAttendanceTable").trigger("update");
-        $("#topAverageAttendanceTable").trigger("sorton", [[1, 1]]);
-
-
+        //Trigger table update
+        $("#topAverageAttendanceTable").trigger("update")
+        setTimeout(function () {
+            //Need to set timeout of 40ms because update is async
+            $("#topAverageAttendanceTable").trigger("sorton", [[[1, 1]]])
+        }, 40);
 
         createScatterPlot('#eventsPerMonthParticipationGraph', 'Average Number of Events Per Month vs. Participation Rate', 'Averages calculated from events held in the past 6 months.', 'Average Events Hosted By Meetup.com Group Per Month (Last 6 Months)', 'linear', 'Avg. Participation Rate', 'linear', function (_this) {
             return '<b>' + _this.point.name + '</b><br/>' + _this.point.x + ' event(s) per month<br/>Avg attendance: ' + _this.point.avg_yes_rsvps + ' people<br/>' + (Math.round((_this.point.y * 100) * 100) / 100) + '% participation (' + _this.point.members + ' total members)';
@@ -305,10 +310,8 @@ function ready() {
             }
         });
 
-        //Hide loading bar, show graphs, and scroll to them
-        $("#data-loading").hide();
 
-
+        //Scroll to the graphs
         $.scrollTo($("#dataDisplayContainer"), 300, {
             axis: 'y'
         });
