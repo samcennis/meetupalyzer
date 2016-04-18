@@ -11,7 +11,10 @@ function ready() {
 
     $('select').material_select();
 
+    $("#topNumMembersTable").tablesorter();
+    $("#topYesRSVPsEventTable").tablesorter();
     $("#topAverageAttendanceTable").tablesorter();
+
 
     var $submitButton = $("#submitButton");
     var $topicsInput = $("#topics-input");
@@ -31,8 +34,8 @@ function ready() {
             $submitButton.addClass("disabled");
             $.post('/api/get_meetup_data', {
                 topics: topics
-                    /*, saveToDB: true
-                    , useDBCache: false*/
+                , saveToDB: true
+                , useDBCache: true
             }, function (result) {
                 console.log("UPDATED SUCCESSFULLY!!")
                 console.log("Did not find topic match for: " + result.invalid_topics);
@@ -344,7 +347,9 @@ function ready() {
             , count: 0
                 }];
         var mapData = [];
-        var yesRSVPsArray = [];
+        var avgYesRSVPsGroupArray = [];
+        var numMembersArray = [];
+        var yesRSVPsEventArray = [];
 
         //Set up data arrays for topic filters
         var topicIds = topicIdsFromJSON(topicsJSON);
@@ -365,7 +370,8 @@ function ready() {
             addToGroupFilter(groupFilter, topicIds, countries, groupsJSON[i])
                 //console.log(groupFilter);
 
-            yesRSVPsArray.push(groupsJSON[i].avg_yes_rsvps_per_event_last_6_months);
+            numMembersArray.push(groupsJSON[i].members);
+            avgYesRSVPsGroupArray.push(groupsJSON[i].avg_yes_rsvps_per_event_last_6_months);
 
             //Only add data if we found data on events in the last 6 months
             //TODO: Make this if statement compatible with filter (keep track of index?)
@@ -450,14 +456,31 @@ function ready() {
                     , "link": eventsJSON[i].event_url
                 });
             }
+
+            yesRSVPsEventArray.push(eventsJSON[i].yes_rsvp_count);
         }
 
         console.log(groupFilter);
 
-        var top10_attended = top10(yesRSVPsArray);
+        var top10_numMembers = top10(numMembersArray);
+        var top10_attended = top10(avgYesRSVPsGroupArray);
+        var top10_events = top10(yesRSVPsEventArray);
+
 
         $("#dataDisplayContainer").show();
         $("#data-loading").hide();
+
+
+        $('#topNumMembersTable > tbody').html("");
+        for (var j = 0; j < top10_numMembers.length; j++) {
+            $('#topNumMembersTable > tbody').append('<tr><td><a target="_blank" href="http://www.meetup.com/' + groupsJSON[top10_numMembers[j][0]].urlname + '">' + groupsJSON[top10_numMembers[j][0]].name + '</a></td>' + '</td><td>' + groupsJSON[top10_numMembers[j][0]].members + '</td></tr>');
+        }
+
+        $('#topYesRSVPsEventTable > tbody').html("");
+        for (var j = 0; j < top10_events.length; j++) {
+            $('#topYesRSVPsEventTable > tbody').append('<tr><td><a target="_blank" href="' + eventsJSON[top10_events[j][0]].event_url + '">' + eventsJSON[top10_events[j][0]].name + '</a></td><td>' + eventsJSON[top10_events[j][0]].yes_rsvp_count + '</td><td>' + eventsJSON[top10_events[j][0]].group_name + '</td></tr>');
+        }
+
 
         $('#topAverageAttendanceTable > tbody').html("");
         //Populate top attendance table
@@ -465,10 +488,15 @@ function ready() {
             $('#topAverageAttendanceTable > tbody:last-child').append('<tr><td><a target="_blank" href="http://www.meetup.com/' + groupsJSON[top10_attended[j][0]].urlname + '">' + groupsJSON[top10_attended[j][0]].name + '</a></td><td>' + groupsJSON[top10_attended[j][0]].avg_yes_rsvps_per_event_last_6_months + '</td><td>' + groupsJSON[top10_attended[j][0]].members + '</td><td>' + (Math.round((groupsJSON[top10_attended[j][0]].avg_participation_rate * 100) * 100) / 100) + '%</td></tr>');
 
         }
-        //Trigger table update
-        $("#topAverageAttendanceTable").trigger("update")
+
+        //Trigger table updates
+        $("#topNumMembersTable").trigger("update");
+        $("#topYesRSVPsEventTable").trigger("update");
+        $("#topAverageAttendanceTable").trigger("update");
         setTimeout(function () {
             //Need to set timeout of 40ms because update is async
+            $("#topNumMembersTable").trigger("sorton", [[[1, 1]]])
+            $("#topYesRSVPsEventTable").trigger("sorton", [[[1, 1]]])
             $("#topAverageAttendanceTable").trigger("sorton", [[[1, 1]]])
         }, 40);
 
@@ -486,16 +514,16 @@ function ready() {
         }, "Events", headsUpTimeData);
 
         //Most Common Time to Schedule Event
-        createColumnChart('#mostCommonTimeChart', 'Event Time Popularity', 'Time of events on weekdays (M - F)', 'Number of Events', 'linear', '{point.y} events', '{point.y} events', 'Popularity', mostCommonTimeData);
+        createColumnChart('#mostCommonTimeChart', 'Event Time Popularity', 'Time of events on weekdays (Mon. - Fri.)', 'Number of Events', 'linear', '{point.y} events', '{point.y} events', 'Popularity', mostCommonTimeData);
 
         //Most Common Day to Schedule Event
         createColumnChart('#mostCommonDayChart', 'Event Day Popularity', '', 'Number of Events', 'linear', '{point.y} events', '{point.y} events', 'Popularity', mostCommonDayData);
 
         //Relative attendance each time
-        createColumnChart('#relativeAttendanceTimeChart', "Average Percentage Above/Below Groups' Average Attendance", "Calculated by dividing a group's average attendance at each time by the group's average overall attendance. This graph displays an average of this metric over all groups.", 'Avg % Above/Below Average Attendance', 'linear', '<b>{point.y}% relative to average attendance</b><br>{point.count} groups have scheduled events at {point.name}', '{point.y}%', '% Above/Below Average', relativeAttendanceTimeData);
+        createColumnChart('#relativeAttendanceTimeChart', "Time of Day: Average Percentage Above/Below Groups' Average Attendance", "This graph only displays weekdays (Mon. - Fri.)", 'Avg % Above/Below Average Attendance', 'linear', '<b>{point.y}% relative to average attendance</b><br>{point.count} groups have scheduled events at {point.name}', '{point.y}%', '% Above/Below Average', relativeAttendanceTimeData);
 
         //Relative attendance each day of the week
-        createColumnChart('#relativeAttendanceDayChart', "Average Percentage Above/Below Groups' Average Attendance", "Calculated by dividing a group's average attendance each day of the week by the group's average overall attendance. This graph displays an average of this metric over all groups.", 'Avg % Above/Below Average Attendance', 'linear', '<b>{point.y}% relative to average attendance</b><br>{point.count} groups have scheduled events on {point.name}s', '{point.y}%', '% Above/Below Average', relativeAttendanceDayData);
+        createColumnChart('#relativeAttendanceDayChart', "Day of the Week: Average Percentage Above/Below Groups' Average Attendance", "", 'Avg % Above/Below Average Attendance', 'linear', '<b>{point.y}% relative to average attendance</b><br>{point.count} groups have scheduled events on {point.name}s', '{point.y}%', '% Above/Below Average', relativeAttendanceDayData);
 
 
         //TODO: Make this a seperate function
@@ -555,6 +583,19 @@ function ready() {
             }
         });
 
+
+        //Prepare data to download
+        var groupsDownloadData = "text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(groupsJSON));
+        var eventsDownloadData = "text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(eventsJSON));
+        var topicsDownloadData = "text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(topicsJSON));
+
+        $("#groupsDataDownload").attr('href', "data:" + groupsDownloadData);
+        $("#eventsDataDownload").attr('href', "data:" + eventsDownloadData);
+        $("#topicsDataDownload").attr('href', "data:" + topicsDownloadData);
+
+        $("#groupsDataDownload").attr('download', "groups.json");
+        $("#eventsDataDownload").attr('download', "events.json");
+        $("#topicsDataDownload").attr('download', "topics.json");
 
         //Scroll to the graphs
         $.scrollTo($("#summaryAndDataDisplayContainer"), 300, {

@@ -77,13 +77,48 @@ app.post('/api/get_meetup_data', function (req, res, next) {
             });
         }
         //If no request to update the cache, then load all groups and events from cached topics in the DB
-        if (!req.body.useDBCache) {
+        if (req.body.useDBCache) {
+
+            console.log("Using DB Cache!");
 
             findGroupsAndEventsByTopicInDB(topicList, function (notFoundTopics, topicsFromDB, groupsFromDB, eventsFromDB) {
                 if (notFoundTopics.length > 0) {
                     //Only get the data from Meetup API if there were topic ids that were not found in the DB
                     getGroupsAndEventsFromMeetupAPI(notFoundTopics, topicsFromDB, groupsFromDB, eventsFromDB, invalidTopics, function (response) {
-                        res.json(response);
+
+                        if (req.body.saveToDB) {
+
+                            console.log("Requested to save the data in the database.");
+
+                            //Add Groups to the MongoDB database
+                            console.log("Adding groups to DB...");
+                            addAllGroupsToDB(response.groups, function (err) {
+                                if (err) {
+                                    return console.log("Error adding groups to DB: " + err.message);
+                                }
+                                console.log("Groups added successfully.");
+
+                                addAllEventsToDB(response.events, function (err) {
+                                    if (err) {
+                                        return console.log("Error adding events to DB: " + err.message);
+                                    }
+                                    console.log("Events added successfully.");
+
+                                    addAllTopicsToDB(response.topics, function (err) {
+                                        if (err) {
+                                            return console.log("Error adding topics to DB: " + err.message);
+                                        }
+                                        console.log("Topics added successfully.");
+
+                                        res.json(response);
+
+                                    });
+                                });
+                            });
+
+                        } else {
+                            res.json(response);
+                        }
                     });
                 } else {
                     return res.json({
@@ -167,9 +202,29 @@ function getGroupsAndEventsFromMeetupAPI(topicList, topicsFromDB, groupsFromDB, 
             calculateEventMetrics(eventListToSave);
 
             //Merge any topics, groups, and events we already had in our DB to the results from meetup API
-            topicListToSave = _.union(topicListToSave, topicsFromDB);
-            groupListToSave = _.union(groupListToSave, groupsFromDB);
-            eventListToSave = _.union(eventListToSave, eventsFromDB);
+            topicListToSave = topicListToSave.concat(topicsFromDB);
+            groupListToSave = groupListToSave.concat(groupsFromDB);
+            eventListToSave = eventListToSave.concat(eventsFromDB);
+
+
+            console.log("size of topiclisttosave before deleting duplicates:" + topicListToSave.length);
+            console.log("size of grouplisttosave before deleting duplicates:" + groupListToSave.length);
+            console.log("size of eventlisttosave before deleting duplicates:" + eventListToSave.length);
+
+            //Delete any duplicates from these arrays
+            topicListToSave = _.uniq(topicListToSave, false, function (e) {
+                return e._id
+            });
+            groupListToSave = _.uniq(groupListToSave, false, function (e) {
+                return e._id
+            });
+            eventListToSave = _.uniq(eventListToSave, false, function (e) {
+                return e._id
+            });
+
+            console.log("size of topiclisttosave after deleting duplicates:" + topicListToSave.length);
+            console.log("size of grouplisttosave after deleting duplicates:" + groupListToSave.length);
+            console.log("size of eventlisttosave after deleting duplicates:" + eventListToSave.length);
 
             console.log("Total api and db combined results: " + topicListToSave.length + " topics, " + groupListToSave.length + " groups, " + eventListToSave.length + " events. ");
 
@@ -478,7 +533,7 @@ function addAllGroupsToDB(groupList, cb) {
     Group.collection.insert(groupList, function (err, docs) {
         if (err) {
             return cb({
-                message: "Error adding groups to DB"
+                message: "Error adding groups to DB" + err.message
             });
         } else {
             return cb();
@@ -493,7 +548,7 @@ function addAllTopicsToDB(topicList, cb) {
     Topic.collection.insert(topicList, function (err, docs) {
         if (err) {
             return cb({
-                message: "Error adding topics to DB"
+                message: "Error adding topics to DB" + err.message
             });
         } else {
             return cb();

@@ -81,14 +81,49 @@
                     <div id="dataDisplayContainer" style="display: none;">
                         <div class="divider"></div>
                         <h4>Where are these groups located?</h4>
+                        <blockquote>This map displays all of the Meetup groups related to the searched for topics. Click on datapoints to open the group's page on Meetup.com in a new tab.</blockquote>
                         <div id="groupLocationMap" style="width: 100%; height: 700px; max-height: 70vw;" class="row section">
                         </div>
 
-                        <div class="divider"></div>
 
+                        <div class="divider"></div>
+                        <div id="topGroupsAndEventsDiv" class="row section">
+                            <h4>Which groups and events are the most popular?</h4>
+                            <blockquote>These charts display the Top 10 Meetup groups related to these topics by number of members and the top 10 past events related to these topics by number of "Yes" RSVPs. Column are sortable upon clicking.</blockquote>
+                            <div class="row">
+                                <p class="title">Top 10 Groups by Number of Members</p>
+                                <table id="topNumMembersTable" class="striped tablesorter">
+                                    <thead>
+                                        <tr>
+                                            <th>Group Name</th>
+                                            <th>Number Of Members</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                            <div class="row">
+                                <p class="title">Top 10 Events by Number of "Yes" RSVPs</p>
+                                <table id="topYesRSVPsEventTable" class="striped tablesorter">
+                                    <thead>
+                                        <tr>
+                                            <th>Event Name</th>
+                                            <th>Number of "Yes" RSVPs</th>
+                                            <th>Group Name</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+
+
+                        <div class="divider"></div>
                         <div id="topAverageAttendanceDiv" class="row section">
                             <h4>Which of them are attended the most?</h4>
-                            <p class="title">Top 10 Most Attended Meetups</p>
+                            <blockquote>This chart displays Meetup groups that average the most "Yes" RSVPs per event that they've hosted in the past 6 months. The "participation rate" column is calculated by dividing the average "Yes" RSVPs per event by the total number of members in the group. Each column is sortable upon clicking.</blockquote>
+                            <p class="title">Groups with Highest Average Attendance</p>
                             <table id="topAverageAttendanceTable" class="striped tablesorter">
                                 <thead>
                                     <tr>
@@ -106,6 +141,7 @@
                         <div class="divider"></div>
                         <div class="row section">
                             <h4>When is the most popular time to schedule an event?</h4>
+                            <blockquote>These column charts display the number of events scheduled each day of the week and each time of day (only weekdays).</blockquote>
                             <div id="mostCommonDayChart" style="width: 100%; height:400px;" class="row section chart">
                             </div>
                             <div id="mostCommonTimeChart" style="width: 100%; height:400px;" class="row section chart">
@@ -114,6 +150,7 @@
 
                         <div class="divider"></div>
                         <h4>How does attendance at each time compare to the group's average?</h4>
+                        <blockquote>Attendance relative to average is calculated by dividing a group's average number of "Yes" RSVPs on a particular day or at a particular time by the group's overall average number of "Yes" RSVPs. The following column charts display an average of this metric over all groups related to the searched-for topics.</blockquote>
                         <div id="relativeAttendanceDayChart" style="width: 100%; height:400px;" class="row section chart"></div>
                         <div id="relativeAttendanceTimeChart" style="width: 100%; height:400px;" class="row section chart">
                         </div>
@@ -121,6 +158,7 @@
 
                         <div class="divider"></div>
                         <h4>How does the number of events held per month affect participation?</h4>
+                        <blockquote>This graph shows the relation between the average number of events a Meetup group hosts per month, and the average participation rate of that group (average number of "Yes" RSVPs per event / number of members in the group). Use the dropdown menus to further filter results.</blockquote>
                         <div id="eventsPerMonthParticipation" class="row">
                             <div class="input-field col s6">
                                 <select class="topicFilterSelect dynamicPop">
@@ -138,11 +176,13 @@
 
                         <div class="divider"></div>
                         <h4>Does the amount of "heads up time" given about an event affect its attendance?</h4>
+                        <blockquote>This graph displays the amount of "heads up time", or the number of days between the announcement day of an event and the day the event was held, versus the attendance of the event. Use the dropdown menus to further filter results.</blockquote>
                         <div id="headsUpTimeChart" style="width: 100%; height:400px;" class="row section chart">
                         </div>
 
                         <div class="divider"></div>
                         <h4>When was each group created?</h4>
+                        <blockquote>This graph displays the creation date of each Meetup group and the number of members in the group.</blockquote>
                         <div id="membersByCreationDate" class="row">
                             <div class="input-field col s6">
                                 <select class="topicFilterSelect dynamicPop">
@@ -160,6 +200,11 @@
                             </div>
                         </div>
 
+                        <div class="divider"></div>
+                        <p>Want to make visualizations of your own? Download the raw data here (JSON format):</p>
+                        <p><a id="groupsDataDownload" href="#">Groups Data</a></p>
+                        <p><a id="eventsDataDownload" href="#">Events Data</a></p>
+                        <p><a id="topicsDataDownload" href="#">Topics Data</a></p>
                     </div>
                 </div>
     </main>
