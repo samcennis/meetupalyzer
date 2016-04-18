@@ -23,6 +23,8 @@ function ready() {
 
     function updateMeetupData(topics) {
         $("#data-loading").show();
+        $("#summaryAndDataDisplayContainer").hide();
+        $("#summary").hide();
         $("#dataDisplayContainer").hide();
 
         if (!$submitButton.hasClass("disabled")) {
@@ -32,15 +34,11 @@ function ready() {
                     /*, saveToDB: true
                     , useDBCache: false*/
             }, function (result) {
-                if (result.topics.length > 0) {
-                    console.log("UPDATED SUCCESSFULLY!!")
-                    console.log("Did not find topic match for: " + result.invalid_topics);
-                    console.log(result);
-                    populatePageWithData(result);
-                    $submitButton.removeClass("disabled");
-                } else {
-                    console.log("No results. All topics searched for were invalid.");
-                }
+                console.log("UPDATED SUCCESSFULLY!!")
+                console.log("Did not find topic match for: " + result.invalid_topics);
+                console.log(result);
+                populatePageWithData(result);
+                $submitButton.removeClass("disabled");
             }).fail(_error);
 
         }
@@ -48,13 +46,36 @@ function ready() {
 
     //Gets data from Meetup.com API, updates Mongo database, then updates JSON file for clients
     $submitButton.click(function () {
-        updateMeetupData($topicsInput.val());
+        var topics = suggestedTopicsSelected;
+
+        if ($topicsInput.val() != '') {
+            topics += "," + $topicsInput.val();
+        }
+
+        updateMeetupData(topics);
     });
 
     $newSearchButton.click(function () {
         $.scrollTo($("#searchContainer"), 300, {
             axis: 'y'
         });
+    });
+
+    var suggestedTopicsSelected = [];
+
+    //Initial population of suggested topic array with default selections
+    var suggested_topics_to_search = $('.suggested_topic_option.selected').map(function () {
+        return $(this).text();
+    }).get();
+    suggestedTopicsSelected = suggested_topics_to_search.join(',');
+
+    $(".suggested_topic_option").click(function () {
+        $(this).toggleClass("selected");
+        var suggested_topics_to_search = $('.suggested_topic_option.selected').map(function () {
+            return $(this).text();
+        }).get();
+
+        suggestedTopicsSelected = suggested_topics_to_search.join(',');
     });
 
     //Filter selection click handlers
@@ -116,6 +137,7 @@ function ready() {
         var groupsJSON = data.groups;
         var eventsJSON = data.events;
         var topicsJSON = data.topics;
+        var invalidTopics = data.invalid_topics;
 
         //$.getJSON("/meetup_data/groups.json", function (groupsJSON) {
 
@@ -129,10 +151,35 @@ function ready() {
 
         $("#summary").html("");
 
-        for (var i = 0; i < topicsJSON.length; i++) {
-            $("#summary").append('<div class="chip">' + topicsJSON[i].name + '</div>');
+        if (invalidTopics.length > 0) {
+            $("#summary").append("<div id='noTopicsFound' class='row' style='color: red'></div>")
+            var noTopicsFoundString = "<span>No Meetup.com topic match for: </span>";
+            for (var i = 0; i < invalidTopics.length; i++) {
+                noTopicsFoundString += '<div class="chip red">' + invalidTopics[i] + '</div>';
+            }
+            $("#noTopicsFound").html(noTopicsFoundString);
         }
+
+        //Return if no topics found
+        if (topicsJSON.length == 0) {
+            $("#summaryAndDataDisplayContainer").show();
+            $("#summary").show();
+            $("#data-loading").hide();
+            return;
+        }
+
+        $("#summary").append("<div id='topicsFound' class='row'></div>");
+
+        var topicsFoundString = "";
+        for (var i = 0; i < topicsJSON.length; i++) {
+            topicsFoundString += '<div class="chip">' + topicsJSON[i].name + '</div>';
+        }
+        $("#topicsFound").html(topicsFoundString);
+
+
+
         $("#summary").append("<h3><b>" + groupsJSON.length + "</b> groups and <b>" + eventsJSON.length + "</b> events related to these topics analyzed.</h3>");
+        $("#summaryAndDataDisplayContainer").show();
         $("#summary").show();
 
         var creationDateData = [];
@@ -510,7 +557,7 @@ function ready() {
 
 
         //Scroll to the graphs
-        $.scrollTo($("#dataDisplayContainer"), 300, {
+        $.scrollTo($("#summaryAndDataDisplayContainer"), 300, {
             axis: 'y'
         });
         //  });

@@ -50,3 +50,13 @@ th.header:before {
     margin-top: 50px;
     margin-bottom: 30px;
 }
+
+.suggested_topic_option {
+    color: #999999;
+    cursor: pointer;
+}
+
+.suggested_topic_option.selected {
+    color: white;
+    background-color: #42A5F5;
+}

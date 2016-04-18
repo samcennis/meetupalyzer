@@ -47,6 +47,14 @@ app.post('/api/get_meetup_data', function (req, res, next) {
     console.log("POST!");
 
     var topics = req.body.topics.trim().split(/\s*[,]\s*/);
+
+    //Remove all empty strings from topics array
+    for (var i = topics.length - 1; i >= 0; i--) {
+        if (topics[i] === "") {
+            topics.splice(i, 1);
+        }
+    }
+
     console.log(topics);
     //var topics = ["ibm", "ibm bluemix", "bluemix"]; //Find groups with the topic "bluemix"
     console.log("User inputed topics: " + topics);
@@ -55,6 +63,8 @@ app.post('/api/get_meetup_data', function (req, res, next) {
 
         var topicIdList = createTopicIdList(topicList); //form list of just the valid topic ids
         var invalidTopics = createInvalidTopicsList(topicList); //form list of invalid topics
+
+        console.log("invalid_topics: " + invalidTopics);
 
         if (topicIdList.length == 0) {
             //All topics were invalid
@@ -685,7 +695,7 @@ var createInvalidTopicsList = function (topicList) {
     var invalidTopicList = [];
 
     for (var i = 0; i < topicList.length; i++) {
-        if (topicList[i].id == -1) invalidTopicList.push(topicList[i].id);
+        if (topicList[i].id == -1) invalidTopicList.push(topicList[i].name);
     }
 
     return invalidTopicList;
