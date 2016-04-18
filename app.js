@@ -277,7 +277,11 @@ function getGroupsByTopicIdsFromMeetupAPI(topic_id_list, cb) {
             //console.log(response.headers['x-rate-limit-reset']);
 
             var link;
-            (response.headers.link) ? link = response.headers.link: link = "";
+            if (response.headers.link) {
+                link = response.headers.link
+            } else {
+                link = "";
+            }
             var totalCount = response.headers['x-total-count'];
 
             //console.log(Object.keys(bodyObj));
@@ -378,12 +382,12 @@ function getEventsByGroupIdListFromMeetupAPI(group_id_list, cb) {
                 console.log("Events count for this batch: " + bodyObj.meta.total_count);
 
                 //Launch another request with an incremented offset if the previous result's metadata has a "next url" listed
-                if (bodyObj.meta.next && offset < 14) { //this offset check caps events at 3000 results for each "batch" of 200 groups
+                if (bodyObj.meta.next && offset < 3) { //this offset check caps events at 800 results for each "batch" of 200 groups
                     offset++;
                     launchEventsRequest(offset);
                     return;
                 } else {
-                    if (offset >= 14) console.log("Event cap of 3000 reached.");
+                    if (offset >= 3) console.log("Event cap of 800 reached.");
                     console.log("Events found in this batch: " + resultsToReturn.length);
                     return launch200GroupIdsRequestCallback(resultsToReturn);
                 }
@@ -869,6 +873,22 @@ function calculateEventMetrics(eventList) {
 //Utility add function to help calculate sums of arrays
 function add(a, b) {
     return a + b;
+}
+
+//Add string "includes" if its not a function
+if (!String.prototype.includes) {
+    String.prototype.includes = function (search, start) {
+        'use strict';
+        if (typeof start !== 'number') {
+            start = 0;
+        }
+
+        if (start + search.length > this.length) {
+            return false;
+        } else {
+            return this.indexOf(search, start) !== -1;
+        }
+    };
 }
 
 var port = process.env.VCAP_APP_PORT || 3000;

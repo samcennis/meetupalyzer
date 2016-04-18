@@ -7,12 +7,12 @@ declared-services:
 applications:
 - services:
   - ToneAnalyzer-sennis
-  name: Meetupalyzer
+  name: MeetBlue
   command: node app.js
   path: .
   memory: 512MB
   domain: mybluemix.net
-  host: meetupalyzer
+  host: meetblue
   env:
     NODE_ENV: production
     SECURE_EXPRESS: 1
