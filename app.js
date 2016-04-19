@@ -77,7 +77,7 @@ app.post('/api/get_meetup_data', function (req, res, next) {
             });
         }
         //If no request to update the cache, then load all groups and events from cached topics in the DB
-        if (req.body.useDBCache) {
+        if (!req.body.hasOwnProperty('useDBCache') || req.body.useDBCache == "true") {
 
             console.log("Using DB Cache!");
 
@@ -86,7 +86,10 @@ app.post('/api/get_meetup_data', function (req, res, next) {
                     //Only get the data from Meetup API if there were topic ids that were not found in the DB
                     getGroupsAndEventsFromMeetupAPI(notFoundTopics, topicsFromDB, groupsFromDB, eventsFromDB, invalidTopics, function (response) {
 
-                        if (req.body.saveToDB) {
+
+                        console.log("save to db is: " + req.body.saveToDB);
+
+                        if (req.body.hasOwnProperty('saveToDB') && req.body.saveToDB == "true") {
 
                             console.log("Requested to save the data in the database.");
 
@@ -134,7 +137,7 @@ app.post('/api/get_meetup_data', function (req, res, next) {
             console.log("Requested not to use the database cache. Pulling all data from Meetup.com");
             getGroupsAndEventsFromMeetupAPI(topicList, [], [], [], invalidTopics, function (response) {
 
-                if (req.body.saveToDB) {
+                if (req.body.hasOwnProperty('saveToDB') && req.body.saveToDB == "true") {
 
                     console.log("Requested to save the data in the database.");
 
@@ -329,6 +332,8 @@ function getGroupsByTopicIdsFromMeetupAPI(topic_id_list, cb) {
 
     function groupsRequestCallback(error, response, body) {
 
+        var IS_GROUP_CAP = true;
+
         if (!error && response.statusCode == 200) {
             console.log("Success group find offset: " + offset);
 
@@ -356,12 +361,12 @@ function getGroupsByTopicIdsFromMeetupAPI(topic_id_list, cb) {
             console.log("Group total count: " + totalCount);
 
             //Launch another request with an incremented offset if the previous result's metadata has a "next url" listed
-            if (link.includes("next") && offset < 4) {
+            if (link.includes("next") && (offset < 4 || !IS_GROUP_CAP)) {
                 offset++;
                 launchGroupsRequest(offset);
                 return;
             } else {
-                if (offset >= 4) console.log("Group cap of 1000 reached.");
+                if (offset >= 4 && IS_GROUP_CAP) console.log("Group cap of 1000 reached.");
                 console.log("Total groups found: " + resultsToReturn.length);
                 //console.log(resultsToReturn);
                 return cb(resultsToReturn);
@@ -384,6 +389,8 @@ function getGroupsByTopicIdsFromMeetupAPI(topic_id_list, cb) {
                     , offset: offset
                     , fields: "topics"
                     , radius: "global"
+                    , desc: "true"
+                    , order: "members"
                         /*, country: "US"*/
                 }
             }
@@ -438,6 +445,8 @@ function getEventsByGroupIdListFromMeetupAPI(group_id_list, cb) {
 
         function eventsRequestCallback(error, response, body) {
 
+            var IS_EVENT_CAP = true;
+
             if (!error && response.statusCode == 200) {
                 console.log("Success event find offset: " + offset);
                 var bodyObj = JSON.parse(response.body);
@@ -447,12 +456,12 @@ function getEventsByGroupIdListFromMeetupAPI(group_id_list, cb) {
                 console.log("Events count for this batch: " + bodyObj.meta.total_count);
 
                 //Launch another request with an incremented offset if the previous result's metadata has a "next url" listed
-                if (bodyObj.meta.next && offset < 3) { //this offset check caps events at 800 results for each "batch" of 200 groups
+                if (bodyObj.meta.next && (offset < 3 || !IS_EVENT_CAP)) { //this offset check caps events at 800 results for each "batch" of 200 groups
                     offset++;
                     launchEventsRequest(offset);
                     return;
                 } else {
-                    if (offset >= 3) console.log("Event cap of 800 reached.");
+                    if (offset >= 3 && IS_EVENT_CAP) console.log("Event cap of 800 reached.");
                     console.log("Events found in this batch: " + resultsToReturn.length);
                     return launch200GroupIdsRequestCallback(resultsToReturn);
                 }

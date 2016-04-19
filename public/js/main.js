@@ -34,8 +34,8 @@ function ready() {
             $submitButton.addClass("disabled");
             $.post('/api/get_meetup_data', {
                 topics: topics
-                , saveToDB: true
-                , useDBCache: true
+                , saveToDB: "false"
+                , useDBCache: "true"
             }, function (result) {
                 console.log("UPDATED SUCCESSFULLY!!")
                 console.log("Did not find topic match for: " + result.invalid_topics);
@@ -581,6 +581,12 @@ function ready() {
             , credits: {
                 enabled: false
             }
+            , plotOptions: {
+                series: {
+                    turboThreshold: 10000
+                }
+
+            }
         });
 
 
@@ -660,6 +666,9 @@ function ready() {
                             }
                         }
                     }
+                }
+                , series: {
+                    turboThreshold: 10000
                 }
             }
             , series: [{
